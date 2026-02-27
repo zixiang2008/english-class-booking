@@ -487,6 +487,117 @@ body {
   margin-top: 10px;
 }
 
+/* PIN Input */
+.pin-input-container {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.pin-input {
+  width: 56px !important;
+  height: 60px;
+  text-align: center;
+  font-size: 1.4rem !important;
+  font-weight: 700;
+  letter-spacing: 0;
+  border: 2px solid #e8ddf0;
+  border-radius: 14px;
+  background: #faf8fc;
+  color: var(--purple-deep);
+  transition: var(--transition);
+  font-family: 'Inter', sans-serif;
+  padding: 0 !important;
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
+  appearance: none;
+}
+
+.pin-input:focus {
+  outline: none;
+  border-color: var(--purple-main);
+  background: white;
+  box-shadow: 0 0 0 4px rgba(107, 45, 139, 0.12);
+  transform: scale(1.05);
+}
+
+.pin-input::-webkit-inner-spin-button,
+.pin-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.pin-hint {
+  text-align: center;
+  font-size: 0.78rem;
+  color: #aaa;
+  margin-top: 8px;
+}
+
+/* Google Auth Button */
+.google-auth-section {
+  margin-bottom: 20px;
+}
+
+.btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 20px;
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 25px;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #444;
+  transition: var(--transition);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.btn-google:hover {
+  background: #f8f8f8;
+  border-color: #ccc;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.btn-google:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.google-icon {
+  flex-shrink: 0;
+}
+
+/* Auth Divider */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  margin: 20px 0;
+  gap: 16px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, transparent, #e0d6ea, transparent);
+}
+
+.auth-divider span {
+  font-size: 0.82rem;
+  color: #aaa;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 .auth-links {
   text-align: center;
   margin-top: 20px;

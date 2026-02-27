@@ -1,5 +1,6 @@
 // ============================
 // Auth.js - Login & Register Logic (i18n-enabled)
+// Supports: 4-digit PIN & Google OAuth
 // ============================
 
 // Toast helper
@@ -17,9 +18,74 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
+// ==========================
+// PIN Input Helpers
+// ==========================
+function handlePinInput(current, nextId) {
+    // Only allow digits
+    current.value = current.value.replace(/[^0-9]/g, '');
+    if (current.value.length === 1 && nextId) {
+        document.getElementById(nextId).focus();
+    }
+}
+
+function handlePinKeydown(event, current, prevId) {
+    if (event.key === 'Backspace' && current.value === '' && prevId) {
+        document.getElementById(prevId).focus();
+    }
+}
+
+function getPinValue(prefix) {
+    // prefix is 'pin' or 'cpin'
+    const p1 = document.getElementById(prefix + '1');
+    const p2 = document.getElementById(prefix + '2');
+    const p3 = document.getElementById(prefix + '3');
+    const p4 = document.getElementById(prefix + '4');
+    if (!p1 || !p2 || !p3 || !p4) return '';
+    return p1.value + p2.value + p3.value + p4.value;
+}
+
+function clearPinInputs(prefix) {
+    for (let i = 1; i <= 4; i++) {
+        const el = document.getElementById(prefix + i);
+        if (el) el.value = '';
+    }
+}
+
+// ==========================
+// Google OAuth
+// ==========================
+function handleGoogleAuth() {
+    // Redirect to server-side Google OAuth endpoint
+    window.location.href = '/api/auth/google';
+}
+
+// Check for Google auth callback on page load
+function checkGoogleCallback() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const googleAuth = urlParams.get('google_auth');
+
+    if (googleAuth === 'success') {
+        const name = urlParams.get('name') || '';
+        const role = urlParams.get('role') || 'student';
+        showToast(I18N.t('loginWelcome', { name: decodeURIComponent(name) }), 'success');
+        setTimeout(() => {
+            if (role === 'teacher') {
+                window.location.href = '/admin.html';
+            } else {
+                window.location.href = '/';
+            }
+        }, 1000);
+    } else if (googleAuth === 'error') {
+        const msg = urlParams.get('message') || 'Google authentication failed';
+        showToast(decodeURIComponent(msg), 'error');
+    }
+}
+
+// ==========================
 // i18n initialization for auth pages
+// ==========================
 function applyI18nToPage() {
-    // Determine which page we are on
     const isLoginPage = !!document.getElementById('login-form');
     const isRegisterPage = !!document.getElementById('register-form');
 
@@ -52,6 +118,7 @@ function applyI18nToPage() {
 
 document.addEventListener('DOMContentLoaded', () => {
     applyI18nToPage();
+    checkGoogleCallback();
 });
 
 I18N.onChange(() => {
@@ -69,11 +136,16 @@ async function handleLogin(e) {
     e.preventDefault();
 
     const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
+    const password = getPinValue('pin');
     const btn = document.getElementById('login-btn');
 
-    if (!username || !password) {
+    if (!username) {
         showToast(I18N.t('loginFillAll'), 'error');
+        return;
+    }
+
+    if (password.length !== 4) {
+        showToast(I18N.t('loginPINRequired'), 'error');
         return;
     }
 
@@ -102,11 +174,13 @@ async function handleLogin(e) {
             showToast(data.error || I18N.t('loginFailed'), 'error');
             btn.disabled = false;
             btn.textContent = I18N.t('loginButton');
+            clearPinInputs('pin');
         }
     } catch (err) {
         showToast(I18N.t('errorNetwork'), 'error');
         btn.disabled = false;
         btn.textContent = I18N.t('loginButton');
+        clearPinInputs('pin');
     }
 }
 
@@ -117,22 +191,28 @@ async function handleRegister(e) {
     const username = document.getElementById('username').value.trim();
     const displayName = document.getElementById('displayName').value.trim();
     const phone = document.getElementById('phone').value.trim();
-    const password = document.getElementById('password').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
+    const password = getPinValue('pin');
+    const confirmPassword = getPinValue('cpin');
     const btn = document.getElementById('register-btn');
 
-    if (!username || !displayName || !password) {
+    if (!username || !displayName) {
         showToast(I18N.t('registerFillRequired'), 'error');
         return;
     }
 
-    if (password.length < 4) {
-        showToast(I18N.t('registerPasswordMinLength'), 'error');
+    if (password.length !== 4) {
+        showToast(I18N.t('registerPINRequired'), 'error');
+        return;
+    }
+
+    if (!/^\d{4}$/.test(password)) {
+        showToast(I18N.t('registerPINDigitsOnly'), 'error');
         return;
     }
 
     if (password !== confirmPassword) {
         showToast(I18N.t('registerPasswordMismatch'), 'error');
+        clearPinInputs('cpin');
         return;
     }
 

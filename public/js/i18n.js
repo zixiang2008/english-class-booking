@@ -217,6 +217,19 @@ const I18N = {
       calendarICalLink: 'iCal/ICS Link',
       calendarWebLink: 'Web View',
       calendarCopied: 'Link copied to clipboard!',
+
+      // PIN & Google Auth
+      registerPIN: '4-Digit PIN *',
+      registerConfirmPIN: 'Confirm PIN *',
+      registerPINHint: 'Enter a 4-digit PIN as your password',
+      registerPINRequired: 'Please enter a 4-digit PIN',
+      registerPINDigitsOnly: 'PIN must be exactly 4 digits',
+      loginPIN: '4-Digit PIN',
+      loginPINRequired: 'Please enter your 4-digit PIN',
+      googleSignIn: 'Sign in with Google',
+      googleSignUp: 'Sign up with Google',
+      authOrDivider: 'or register with PIN',
+      authOrDividerLogin: 'or login with PIN',
     },
 
     zh: {
@@ -377,6 +390,19 @@ const I18N = {
       calendarICalLink: 'iCal/ICS 链接',
       calendarWebLink: '网页查看',
       calendarCopied: '链接已复制到剪贴板！',
+
+      // PIN & Google Auth
+      registerPIN: '4位数字密码 *',
+      registerConfirmPIN: '确认密码 *',
+      registerPINHint: '请输入4位数字作为登录密码',
+      registerPINRequired: '请输入4位数字密码',
+      registerPINDigitsOnly: '密码必须是4位数字',
+      loginPIN: '4位数字密码',
+      loginPINRequired: '请输入4位数字密码',
+      googleSignIn: '使用 Google 登录',
+      googleSignUp: '使用 Google 注册',
+      authOrDivider: '或用密码注册',
+      authOrDividerLogin: '或用密码登录',
     },
 
     th: {
@@ -537,6 +563,19 @@ const I18N = {
       calendarICalLink: 'ลิงค์ iCal/ICS',
       calendarWebLink: 'ดูบนเว็บ',
       calendarCopied: 'คัดลอกลิงค์ไปยังคลิปบอร์ดแล้ว!',
+
+      // PIN & Google Auth
+      registerPIN: 'รหัส PIN 4 หลัก *',
+      registerConfirmPIN: 'ยืนยัน PIN *',
+      registerPINHint: 'กรอก PIN 4 หลักเป็นรหัสผ่านของคุณ',
+      registerPINRequired: 'กรุณากรอก PIN 4 หลัก',
+      registerPINDigitsOnly: 'PIN ต้องเป็นตัวเลข 4 หลัก',
+      loginPIN: 'รหัส PIN 4 หลัก',
+      loginPINRequired: 'กรุณากรอก PIN 4 หลัก',
+      googleSignIn: 'เข้าสู่ระบบด้วย Google',
+      googleSignUp: 'ลงทะเบียนด้วย Google',
+      authOrDivider: 'หรือลงทะเบียนด้วย PIN',
+      authOrDividerLogin: 'หรือเข้าสู่ระบบด้วย PIN',
     },
 
     ja: {
@@ -697,6 +736,19 @@ const I18N = {
       calendarICalLink: 'iCal/ICSリンク',
       calendarWebLink: 'ウェブ表示',
       calendarCopied: 'リンクをクリップボードにコピーしました！',
+
+      // PIN & Google Auth
+      registerPIN: '4桁のPIN *',
+      registerConfirmPIN: 'PIN確認 *',
+      registerPINHint: '4桁のPINをパスワードとして入力してください',
+      registerPINRequired: '4桁のPINを入力してください',
+      registerPINDigitsOnly: 'PINは4桁の数字でなければなりません',
+      loginPIN: '4桁のPIN',
+      loginPINRequired: '4桁のPINを入力してください',
+      googleSignIn: 'Googleでログイン',
+      googleSignUp: 'Googleで登録',
+      authOrDivider: 'またはPINで登録',
+      authOrDividerLogin: 'またはPINでログイン',
     }
   },
 
@@ -761,8 +813,8 @@ const I18N = {
    */
   t(key, params) {
     let str = this.translations[this._currentLang]?.[key]
-           || this.translations['en']?.[key]
-           || key;
+      || this.translations['en']?.[key]
+      || key;
     if (params) {
       for (const [k, v] of Object.entries(params)) {
         str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), v);

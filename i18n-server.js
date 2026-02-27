@@ -29,6 +29,7 @@ const translations = {
         studentsFailed: 'Failed to load student list',
         removeFailed: 'Operation failed',
         removed: 'Booking removed',
+        pinDigitsOnly: 'PIN must be exactly 4 digits',
     },
     zh: {
         fillRequired: '请填写所有必填字段',
@@ -56,6 +57,7 @@ const translations = {
         studentsFailed: '获取学生列表失败',
         removeFailed: '操作失败',
         removed: '已移除预约',
+        pinDigitsOnly: '密码必须是4位数字',
     },
     th: {
         fillRequired: 'กรุณากรอกข้อมูลที่จำเป็น',
@@ -83,6 +85,7 @@ const translations = {
         studentsFailed: 'โหลดรายชื่อนักเรียนไม่สำเร็จ',
         removeFailed: 'ดำเนินการไม่สำเร็จ',
         removed: 'ลบการจองแล้ว',
+        pinDigitsOnly: 'PIN ต้องเป็นตัวเลข 4 หลัก',
     },
     ja: {
         fillRequired: '必須フィールドを入力してください',
@@ -110,6 +113,7 @@ const translations = {
         studentsFailed: '生徒リストの読み込みに失敗しました',
         removeFailed: '操作失敗',
         removed: '予約を削除しました',
+        pinDigitsOnly: 'PINは4桁の数字でなければなりません',
     }
 };
 

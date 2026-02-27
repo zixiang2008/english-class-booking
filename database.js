@@ -120,6 +120,7 @@ async function initDatabase() {
       display_name TEXT NOT NULL,
       phone TEXT DEFAULT '',
       role TEXT DEFAULT 'student' CHECK(role IN ('student', 'teacher')),
+      google_id TEXT DEFAULT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -135,6 +136,13 @@ async function initDatabase() {
       UNIQUE(day_of_week, time_slot)
     );
   `);
+
+  // Add google_id column if it doesn't exist (migration for existing databases)
+  try {
+    db.exec('ALTER TABLE users ADD COLUMN google_id TEXT DEFAULT NULL');
+  } catch (e) {
+    // Column already exists, ignore
+  }
 
   // Initialize default teacher account if not exists
   const teacherExists = db.prepare('SELECT id FROM users WHERE role = ?').get('teacher');
