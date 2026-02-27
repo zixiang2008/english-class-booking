@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Register for English Class Booking System">
+    <title>Register - English Class Booking</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <h1 data-i18n="appTitle">English Class Schedule</h1>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="nav-bar">
+        <div class="nav-left">
+            <a href="/" class="logo" style="text-decoration:none;" data-i18n="appName">📖 English Class</a>
+        </div>
+        <div class="nav-center" id="nav-lang"></div>
+        <div class="nav-right">
+            <a href="/" class="btn btn-sm btn-secondary" data-i18n="navBackHome">← Back to Schedule</a>
+        </div>
+    </nav>
+
+    <!-- Register Form -->
+    <div class="auth-container">
+        <div class="auth-card">
+            <h2 data-i18n="registerTitle">✨ Create Account</h2>
+            <p class="subtitle" data-i18n="registerSubtitle">Register to book classes online</p>
+
+            <form id="register-form" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label for="username" data-i18n="registerUsername">Username *</label>
+                    <input type="text" id="username" name="username" required autocomplete="username"
+                        data-i18n-placeholder="registerUsernamePlaceholder">
+                </div>
+                <div class="form-group">
+                    <label for="displayName" data-i18n="registerDisplayName">Your Name *</label>
+                    <input type="text" id="displayName" name="displayName" required
+                        data-i18n-placeholder="registerDisplayNamePlaceholder">
+                </div>
+                <div class="form-group">
+                    <label for="phone" data-i18n="registerPhone">Phone Number</label>
+                    <input type="tel" id="phone" name="phone" data-i18n-placeholder="registerPhonePlaceholder">
+                </div>
+                <div class="form-group">
+                    <label for="password" data-i18n="registerPassword">Password *</label>
+                    <input type="password" id="password" name="password" required minlength="4"
+                        autocomplete="new-password" data-i18n-placeholder="registerPasswordPlaceholder">
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword" data-i18n="registerConfirmPassword">Confirm Password *</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required
+                        autocomplete="new-password" data-i18n-placeholder="registerConfirmPasswordPlaceholder">
+                </div>
+                <button type="submit" class="btn btn-primary" id="register-btn"
+                    data-i18n="registerButton">Register</button>
+            </form>
+
+            <div class="auth-links">
+                <span data-i18n="registerHasAccount">Already have an account?</span> <a href="/login.html"
+                    data-i18n="registerLoginLink">Login</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/i18n.js"></script>
+    <script src="/js/auth.js"></script>
+</body>
+
+</html>

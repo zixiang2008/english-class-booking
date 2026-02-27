@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Teacher Admin Panel - English Class Booking System">
+    <title>Teacher Admin - English Class Booking</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <h1 data-i18n="appTitle">English Class Schedule</h1>
+        <p class="header-subtitle" data-i18n="adminSubtitle">Teacher Admin Panel</p>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="nav-bar" id="navbar">
+        <div class="nav-left">
+            <a href="/" class="logo" style="text-decoration:none;" data-i18n="appName">📖 English Class</a>
+        </div>
+        <div class="nav-center" id="nav-lang"></div>
+        <div class="nav-right" id="nav-right">
+            <a href="/" class="btn btn-sm btn-secondary" data-i18n="navBackSchedule">← Schedule</a>
+            <button class="btn btn-sm btn-danger" onclick="logout()" data-i18n="logoutText">Logout</button>
+        </div>
+    </nav>
+
+    <!-- Admin Content -->
+    <div class="admin-container">
+        <!-- Tabs -->
+        <div class="admin-tabs">
+            <button class="admin-tab active" id="tab-schedule" onclick="switchTab('schedule')"
+                data-i18n="adminTabSchedule">📅 Schedule Management</button>
+            <button class="admin-tab" id="tab-students" onclick="switchTab('students')" data-i18n="adminTabStudents">👥
+                Student List</button>
+        </div>
+
+        <!-- Schedule Management Panel -->
+        <div class="admin-panel" id="panel-schedule">
+            <h3 data-i18n="adminScheduleTitle">📅 Schedule Management</h3>
+            <p style="color:#888; font-size:0.85rem; margin-bottom:16px;" data-i18n="adminScheduleDesc">Click buttons to
+                toggle slot status or remove bookings</p>
+            <!-- Admin Week Navigation -->
+            <div class="week-nav week-nav-admin" id="admin-week-nav">
+                <button class="week-nav-btn" onclick="adminPrevWeek()" id="admin-btn-prev-week">
+                    <span class="week-nav-arrow">‹</span>
+                </button>
+                <div class="week-nav-center">
+                    <span class="week-range" id="admin-week-range-text">Loading...</span>
+                    <button class="btn btn-sm btn-today" id="admin-btn-today" onclick="adminGoToday()"
+                        style="display:none;" data-i18n="weekToday">📍 This Week</button>
+                </div>
+                <button class="week-nav-btn" onclick="adminNextWeek()" id="admin-btn-next-week">
+                    <span class="week-nav-arrow">›</span>
+                </button>
+            </div>
+            <div class="loading" id="admin-loading">
+                <div class="spinner"></div>
+                <p data-i18n="adminLoadingText">Loading...</p>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="admin-schedule-table hidden" id="admin-schedule-table">
+                    <thead>
+                        <tr id="admin-schedule-header">
+                            <th data-i18n="scheduleTimeHeader">TIME</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-schedule-body">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Students Panel -->
+        <div class="admin-panel hidden" id="panel-students">
+            <h3 data-i18n="adminStudentsTitle">👥 Registered Students</h3>
+            <div class="loading" id="students-loading">
+                <div class="spinner"></div>
+                <p data-i18n="adminLoadingText">Loading...</p>
+            </div>
+            <div class="student-list hidden" id="student-list">
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p class="footer-text" data-i18n="footerAdmin">Teacher Admin Panel</p>
+        <p class="footer-contact" data-i18n="footerAdminSub">English Class Booking System</p>
+    </footer>
+
+    <script src="/js/i18n.js"></script>
+    <script src="/js/admin.js"></script>
+</body>
+
+</html>

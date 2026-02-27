@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="English Class Schedule - Book your English lessons online. View available time slots and reserve your class today.">
+    <title>English Class Schedule</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <h1 data-i18n="appTitle">English Class Schedule</h1>
+        <p class="header-subtitle" data-i18n="appSubtitle">View available times and book your class</p>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="nav-bar" id="navbar">
+        <div class="nav-left">
+            <span class="logo" data-i18n="appName">📖 English Class</span>
+        </div>
+        <div class="nav-center" id="nav-lang">
+            <!-- Language switcher inserted here by JS -->
+        </div>
+        <div class="nav-right" id="nav-right">
+            <!-- Dynamic: login/register buttons or user info -->
+        </div>
+    </nav>
+
+    <!-- Legend -->
+    <div class="legend" id="legend">
+        <div class="legend-item">
+            <span class="legend-dot available"></span>
+            <span data-i18n="legendAvailable">Available</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-dot booked"></span>
+            <span data-i18n="legendBooked">Booked</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-dot not-available"></span>
+            <span data-i18n="legendNotAvailable">Not Available</span>
+        </div>
+        <div class="legend-item hidden" id="legend-my">
+            <span class="legend-dot my-booking"></span>
+            <span data-i18n="legendMyBooking">My Booking</span>
+        </div>
+    </div>
+
+    <!-- Week Navigation -->
+    <div class="week-nav" id="week-nav">
+        <button class="week-nav-btn" onclick="prevWeek()" id="btn-prev-week">
+            <span class="week-nav-arrow">‹</span>
+        </button>
+        <div class="week-nav-center">
+            <span class="week-range" id="week-range-text">Loading...</span>
+            <button class="btn btn-sm btn-today" id="btn-today" onclick="goToday()" style="display:none;" data-i18n="weekToday">📍 This Week</button>
+        </div>
+        <button class="week-nav-btn" onclick="nextWeek()" id="btn-next-week">
+            <span class="week-nav-arrow">›</span>
+        </button>
+    </div>
+
+    <!-- Schedule Table -->
+    <div class="schedule-container">
+        <div class="schedule-table-wrap">
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p data-i18n="scheduleLoading">Loading schedule...</p>
+            </div>
+            <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+                <table class="schedule-table hidden" id="schedule-table">
+                    <thead>
+                        <tr id="schedule-header">
+                            <th data-i18n="scheduleTimeHeader">TIME</th>
+                        </tr>
+                    </thead>
+                    <tbody id="schedule-body">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p class="footer-text" data-i18n="footerText">Interested In My Classes? Book Now!</p>
+        <p class="footer-contact" data-i18n="footerContact">TEL 098 007 8731 | Yosowa.toeskol@gmail.com | Wechat ID Ysowa 098 007 8731</p>
+    </footer>
+
+    <!-- Modal for booking/cancel confirmation -->
+    <div class="modal-overlay hidden" id="modal-overlay">
+        <div class="modal" id="modal">
+            <h3 id="modal-title"></h3>
+            <p id="modal-message"></p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="modal-cancel" onclick="closeModal()" data-i18n="modalCancel">Cancel</button>
+                <button class="btn btn-primary" id="modal-confirm" data-i18n="modalConfirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/i18n.js"></script>
+    <script src="/js/schedule.js"></script>
+</body>
+</html>

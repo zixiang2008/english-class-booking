@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Public view of English Class Schedule - Subscribe to the teacher's calendar">
+    <title>Calendar Subscription - English Class</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <h1 data-i18n="appTitle">English Class Schedule</h1>
+        <p class="header-subtitle" data-i18n="calendarTitle">Subscribe to Teacher Schedule</p>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="nav-bar">
+        <div class="nav-left">
+            <a href="/" class="logo" style="text-decoration:none;" data-i18n="appName">📖 English Class</a>
+        </div>
+        <div class="nav-center" id="nav-lang"></div>
+        <div class="nav-right">
+            <a href="/" class="btn btn-sm btn-secondary" data-i18n="navBackHome">← Back to Schedule</a>
+        </div>
+    </nav>
+
+    <!-- Calendar Subscription Content -->
+    <div class="auth-container" style="min-height: auto; padding: 30px 20px;">
+        <div class="auth-card" style="max-width: 600px;">
+            <h2>📅 Calendar Subscription</h2>
+            <p class="subtitle" data-i18n="calendarDesc">Add to your calendar app to see the class schedule.</p>
+
+            <!-- ICS Link -->
+            <div class="cal-link-section">
+                <h3 class="cal-section-title">🔗 iCal / ICS Subscription URL</h3>
+                <div class="cal-link-box">
+                    <input type="text" id="ics-url" readonly class="cal-url-input" value="">
+                    <button class="btn btn-primary btn-sm" onclick="copyUrl('ics-url')" id="copy-ics-btn">📋
+                        Copy</button>
+                </div>
+                <p class="cal-hint">Use this URL to subscribe in Google Calendar, Apple Calendar, or Outlook.</p>
+            </div>
+
+            <!-- Web View Link -->
+            <div class="cal-link-section">
+                <h3 class="cal-section-title">🌐 Public Web View (JSON)</h3>
+                <div class="cal-link-box">
+                    <input type="text" id="web-url" readonly class="cal-url-input" value="">
+                    <button class="btn btn-primary btn-sm" onclick="copyUrl('web-url')" id="copy-web-btn">📋
+                        Copy</button>
+                </div>
+                <p class="cal-hint">Read-only JSON endpoint for integrations.</p>
+            </div>
+
+            <!-- Instructions -->
+            <div class="cal-instructions">
+                <h3 class="cal-section-title">📖 How to Subscribe</h3>
+
+                <details class="cal-detail">
+                    <summary>📱 Google Calendar</summary>
+                    <ol>
+                        <li>Open <a href="https://calendar.google.com" target="_blank">Google Calendar</a></li>
+                        <li>Click <strong>+</strong> next to "Other calendars" on the left sidebar</li>
+                        <li>Select <strong>"From URL"</strong></li>
+                        <li>Paste the ICS URL above</li>
+                        <li>Click <strong>"Add calendar"</strong></li>
+                    </ol>
+                </details>
+
+                <details class="cal-detail">
+                    <summary>🍎 Apple Calendar (macOS / iOS)</summary>
+                    <ol>
+                        <li>Open the Calendar app</li>
+                        <li>Go to <strong>File → New Calendar Subscription</strong></li>
+                        <li>Paste the ICS URL above</li>
+                        <li>Click <strong>Subscribe</strong></li>
+                        <li>Set auto-refresh interval (e.g., every hour)</li>
+                    </ol>
+                </details>
+
+                <details class="cal-detail">
+                    <summary>📧 Microsoft Outlook</summary>
+                    <ol>
+                        <li>Open Outlook Calendar</li>
+                        <li>Click <strong>Add calendar → From Internet</strong></li>
+                        <li>Paste the ICS URL above</li>
+                        <li>Click <strong>OK</strong></li>
+                    </ol>
+                </details>
+            </div>
+
+            <!-- Privacy Notice -->
+            <div class="cal-privacy">
+                <h4>🔒 Privacy Notice</h4>
+                <ul>
+                    <li>Only booking <strong>status</strong> is shown (available / booked / not available)</li>
+                    <li>Student names are <strong>abbreviated to initials</strong> only</li>
+                    <li>No phone numbers, usernames, or booking history exposed</li>
+                    <li>No authentication required to view schedule status</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p class="footer-text" data-i18n="footerText">Interested In My Classes? Book Now!</p>
+        <p class="footer-contact" data-i18n="footerContact">TEL 098 007 8731 | Yosowa.toeskol@gmail.com | Wechat ID
+            Ysowa 098 007 8731</p>
+    </footer>
+
+    <script src="/js/i18n.js"></script>
+    <script>
+        // Set URLs based on current host
+        const baseUrl = window.location.origin;
+        document.getElementById('ics-url').value = baseUrl + '/api/calendar/schedule.ics';
+        document.getElementById('web-url').value = baseUrl + '/api/calendar/schedule';
+
+        function copyUrl(inputId) {
+            const input = document.getElementById(inputId);
+            input.select();
+            navigator.clipboard.writeText(input.value).then(() => {
+                showToast(I18N.t('calendarCopied'), 'success');
+            }).catch(() => {
+                // Fallback
+                document.execCommand('copy');
+                showToast(I18N.t('calendarCopied'), 'success');
+            });
+        }
+
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100px)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Apply i18n
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                el.textContent = I18N.t(el.getAttribute('data-i18n'));
+            });
+            const navLang = document.getElementById('nav-lang');
+            if (navLang && !navLang.querySelector('.lang-switcher')) {
+                navLang.appendChild(I18N.createLanguageSwitcher());
+            }
+        });
+
+        I18N.onChange(() => {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                el.textContent = I18N.t(el.getAttribute('data-i18n'));
+            });
+            const btn = document.getElementById('lang-switcher-btn');
+            if (btn) {
+                const lang = I18N.languages[I18N.getLang()];
+                btn.innerHTML = `<span class="lang-flag">${lang.flag}</span><span class="lang-name">${lang.nativeName}</span><span class="lang-arrow">▾</span>`;
+            }
+        });
+    </script>
+</body>
+
+</html>

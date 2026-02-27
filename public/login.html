@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Login to English Class Booking System">
+    <title>Login - English Class Booking</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <h1 data-i18n="appTitle">English Class Schedule</h1>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="nav-bar">
+        <div class="nav-left">
+            <a href="/" class="logo" style="text-decoration:none;" data-i18n="appName">📖 English Class</a>
+        </div>
+        <div class="nav-center" id="nav-lang"></div>
+        <div class="nav-right">
+            <a href="/" class="btn btn-sm btn-secondary" data-i18n="navBackHome">← Back to Schedule</a>
+        </div>
+    </nav>
+
+    <!-- Login Form -->
+    <div class="auth-container">
+        <div class="auth-card">
+            <h2 data-i18n="loginTitle">👋 Welcome Back</h2>
+            <p class="subtitle" data-i18n="loginSubtitle">Login to start booking classes</p>
+
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="username" data-i18n="loginUsername">Username</label>
+                    <input type="text" id="username" name="username" required autocomplete="username"
+                        data-i18n-placeholder="loginUsernamePlaceholder">
+                </div>
+                <div class="form-group">
+                    <label for="password" data-i18n="loginPassword">Password</label>
+                    <input type="password" id="password" name="password" required autocomplete="current-password"
+                        data-i18n-placeholder="loginPasswordPlaceholder">
+                </div>
+                <button type="submit" class="btn btn-primary" id="login-btn" data-i18n="loginButton">Login</button>
+            </form>
+
+            <div class="auth-links">
+                <span data-i18n="loginNoAccount">Don't have an account?</span> <a href="/register.html"
+                    data-i18n="loginRegisterLink">Register now</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/i18n.js"></script>
+    <script src="/js/auth.js"></script>
+</body>
+
+</html>
