@@ -82,6 +82,15 @@ router.post('/login', (req, res) => {
 });
 
 // ============================
+// Auth Config (for frontend)
+// ============================
+router.get('/config', (req, res) => {
+    res.json({
+        googleOAuthEnabled: !!googleClient
+    });
+});
+
+// ============================
 // Google OAuth Routes
 // ============================
 

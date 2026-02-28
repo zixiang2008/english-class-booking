@@ -119,7 +119,35 @@ function applyI18nToPage() {
 document.addEventListener('DOMContentLoaded', () => {
     applyI18nToPage();
     checkGoogleCallback();
+    checkGoogleOAuthAvailability();
 });
+
+// Check if Google OAuth is available and hide buttons if not
+async function checkGoogleOAuthAvailability() {
+    try {
+        const res = await fetch('/api/auth/config');
+        const config = await res.json();
+        if (!config.googleOAuthEnabled) {
+            hideGoogleAuthUI();
+        }
+    } catch (e) {
+        hideGoogleAuthUI();
+    }
+}
+
+function hideGoogleAuthUI() {
+    // Hide the entire Google auth section (button + divider)
+    document.querySelectorAll('.google-auth-section').forEach(el => {
+        el.style.display = 'none';
+    });
+    // Also hide standalone Google buttons and dividers if any
+    document.querySelectorAll('.btn-google, .google-btn, .google-login-btn').forEach(el => {
+        el.style.display = 'none';
+    });
+    document.querySelectorAll('.divider, .auth-divider').forEach(el => {
+        el.style.display = 'none';
+    });
+}
 
 I18N.onChange(() => {
     applyI18nToPage();
