@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="English Class Schedule - Book your English lessons online. View available time slots and reserve your class today.">
+    <meta name="description"
+        content="English Class Schedule - Book your English lessons online. View available time slots and reserve your class today.">
     <title>English Class Schedule</title>
     <link rel="stylesheet" href="/css/style.css">
 </head>
+
 <body>
     <!-- Header -->
     <header class="header">
@@ -54,7 +57,8 @@
         </button>
         <div class="week-nav-center">
             <span class="week-range" id="week-range-text">Loading...</span>
-            <button class="btn btn-sm btn-today" id="btn-today" onclick="goToday()" style="display:none;" data-i18n="weekToday">📍 This Week</button>
+            <button class="btn btn-sm btn-today" id="btn-today" onclick="goToday()" style="display:none;"
+                data-i18n="weekToday">📍 This Week</button>
         </div>
         <button class="week-nav-btn" onclick="nextWeek()" id="btn-next-week">
             <span class="week-nav-arrow">›</span>
@@ -85,7 +89,12 @@
     <!-- Footer -->
     <footer class="footer">
         <p class="footer-text" data-i18n="footerText">Interested In My Classes? Book Now!</p>
-        <p class="footer-contact" data-i18n="footerContact">TEL 098 007 8731 | Yosowa.toeskol@gmail.com | Wechat ID Ysowa 098 007 8731</p>
+        <p class="footer-contact" id="footer-contact">
+            📞 <a href="tel:0637592741" id="footer-phone-link">0637592741</a>
+            | chen.guanglei.elvis@gmail.com
+            | <a href="https://line.me/ti/p/LJq8xrH-HU" target="_blank" rel="noopener" id="footer-line-link"
+                class="footer-line">💬 Line</a>
+        </p>
     </footer>
 
     <!-- Modal for booking/cancel confirmation -->
@@ -94,7 +103,8 @@
             <h3 id="modal-title"></h3>
             <p id="modal-message"></p>
             <div class="modal-actions">
-                <button class="btn btn-secondary" id="modal-cancel" onclick="closeModal()" data-i18n="modalCancel">Cancel</button>
+                <button class="btn btn-secondary" id="modal-cancel" onclick="closeModal()"
+                    data-i18n="modalCancel">Cancel</button>
                 <button class="btn btn-primary" id="modal-confirm" data-i18n="modalConfirm">Confirm</button>
             </div>
         </div>
@@ -103,4 +113,5 @@
     <script src="/js/i18n.js"></script>
     <script src="/js/schedule.js"></script>
 </body>
+
 </html>

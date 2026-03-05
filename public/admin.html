@@ -36,6 +36,7 @@
                 data-i18n="adminTabSchedule">📅 Schedule Management</button>
             <button class="admin-tab" id="tab-students" onclick="switchTab('students')" data-i18n="adminTabStudents">👥
                 Student List</button>
+            <button class="admin-tab" id="tab-settings" onclick="switchTab('settings')">⚙️ Site Settings</button>
         </div>
 
         <!-- Schedule Management Panel -->
@@ -83,6 +84,32 @@
             </div>
             <div class="student-list hidden" id="student-list">
             </div>
+        </div>
+
+        <!-- Settings Panel -->
+        <div class="admin-panel hidden" id="panel-settings">
+            <h3>⚙️ Site Settings</h3>
+            <p style="color:#888; font-size:0.85rem; margin-bottom:16px;">Modify site title, contact info and social
+                links</p>
+            <form id="settings-form" onsubmit="handleSaveSettings(event)">
+                <div class="form-group">
+                    <label for="setting-title">Site Title</label>
+                    <input type="text" id="setting-title" placeholder="e.g. 财神'S Class">
+                </div>
+                <div class="form-group">
+                    <label for="setting-phone">Phone</label>
+                    <input type="text" id="setting-phone" placeholder="e.g. 0637592741">
+                </div>
+                <div class="form-group">
+                    <label for="setting-email">Email</label>
+                    <input type="email" id="setting-email" placeholder="e.g. example@gmail.com">
+                </div>
+                <div class="form-group">
+                    <label for="setting-line">Line URL</label>
+                    <input type="url" id="setting-line" placeholder="https://line.me/ti/p/...">
+                </div>
+                <button type="submit" class="btn btn-primary" id="settings-save-btn">💾 Save Settings</button>
+            </form>
         </div>
     </div>
 

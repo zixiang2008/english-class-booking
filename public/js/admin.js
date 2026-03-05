@@ -135,6 +135,8 @@ function switchTab(tab) {
 
     if (tab === 'students') {
         loadStudents();
+    } else if (tab === 'settings') {
+        loadSettings();
     }
 }
 
@@ -405,4 +407,53 @@ function showToast(message, type = 'info') {
         toast.style.transition = 'all 0.3s ease';
         setTimeout(() => toast.remove(), 300);
     }, 3000);
+}
+
+// ============================
+// Site Settings
+// ============================
+async function loadSettings() {
+    try {
+        const res = await fetch('/api/settings');
+        const settings = await res.json();
+
+        document.getElementById('setting-title').value = settings.site_title || '';
+        document.getElementById('setting-phone').value = settings.site_phone || '';
+        document.getElementById('setting-email').value = settings.site_email || '';
+        document.getElementById('setting-line').value = settings.site_line_url || '';
+    } catch (err) {
+        console.error('Load settings failed:', err);
+        showToast('Failed to load settings', 'error');
+    }
+}
+
+async function handleSaveSettings(e) {
+    e.preventDefault();
+    const btn = document.getElementById('settings-save-btn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    try {
+        const res = await fetch('/api/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                site_title: document.getElementById('setting-title').value,
+                site_phone: document.getElementById('setting-phone').value,
+                site_email: document.getElementById('setting-email').value,
+                site_line_url: document.getElementById('setting-line').value
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Settings saved! ✅', 'success');
+        } else {
+            showToast(data.error || 'Save failed', 'error');
+        }
+    } catch (err) {
+        showToast('Network error', 'error');
+    }
+
+    btn.disabled = false;
+    btn.textContent = '💾 Save Settings';
 }

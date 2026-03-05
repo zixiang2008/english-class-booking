@@ -129,10 +129,40 @@ function applyI18nToPage() {
     }
 }
 
+// Load site settings and apply to page
+async function loadSiteSettings() {
+    try {
+        const res = await fetch('/api/settings');
+        const settings = await res.json();
+
+        // Update page title
+        if (settings.site_title) {
+            const titleEl = document.querySelector('header h1');
+            if (titleEl) titleEl.textContent = settings.site_title;
+            document.title = settings.site_title;
+        }
+
+        // Update footer contact info
+        const phoneLink = document.getElementById('footer-phone-link');
+        if (phoneLink && settings.site_phone) {
+            phoneLink.textContent = settings.site_phone;
+            phoneLink.href = 'tel:' + settings.site_phone;
+        }
+
+        const lineLink = document.getElementById('footer-line-link');
+        if (lineLink && settings.site_line_url) {
+            lineLink.href = settings.site_line_url;
+        }
+    } catch (err) {
+        console.error('Load site settings failed:', err);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     applyI18nToPage();
     checkAuth();
     loadSchedule();
+    loadSiteSettings();
 });
 
 // Listen for language changes

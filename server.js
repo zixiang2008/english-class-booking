@@ -40,6 +40,7 @@ async function startServer() {
     app.use('/api/schedule', require('./routes/schedule'));
     app.use('/api/admin', require('./routes/admin'));
     app.use('/api/calendar', require('./routes/calendar'));
+    app.use('/api/settings', require('./routes/settings'));
 
     // 404 handler for API routes
     app.use('/api/*', (req, res) => {
@@ -60,7 +61,7 @@ async function startServer() {
         console.log(`\n🎓 English Class Booking System is running!`);
         console.log(`📖 Student view: http://localhost:${PORT}`);
         console.log(`🔧 Teacher admin: http://localhost:${PORT}/admin.html`);
-        console.log(`\n👩‍🏫 Default teacher login: username: teacher / password: teacher123\n`);
+        console.log(`\n👩‍🏫 Default teacher login: username: teacher / PIN: 1234\n`);
     });
 }
 

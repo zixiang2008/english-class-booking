@@ -147,7 +147,7 @@ async function initDatabase() {
   // Initialize default teacher account if not exists
   const teacherExists = db.prepare('SELECT id FROM users WHERE role = ?').get('teacher');
   if (!teacherExists) {
-    const hash = bcrypt.hashSync('teacher123', 10);
+    const hash = bcrypt.hashSync('1234', 10);
     db.prepare(
       'INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, ?)'
     ).run('teacher', hash, 'Teacher Yosowa', 'teacher');
@@ -201,6 +201,29 @@ async function initDatabase() {
     });
 
     insertMany(defaults);
+  }
+
+  // Create site_settings table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS site_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT DEFAULT ''
+    );
+  `);
+
+  // Initialize default site settings if not exist
+  const defaultSettings = {
+    site_phone: '0637592741',
+    site_email: 'chen.guanglei.elvis@gmail.com',
+    site_title: "财神'S Class",
+    site_line_url: 'https://line.me/ti/p/LJq8xrH-HU'
+  };
+
+  for (const [key, value] of Object.entries(defaultSettings)) {
+    const exists = db.prepare('SELECT key FROM site_settings WHERE key = ?').get(key);
+    if (!exists) {
+      db.prepare('INSERT INTO site_settings (key, value) VALUES (?, ?)').run(key, value);
+    }
   }
 
   return db;
