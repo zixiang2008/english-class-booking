@@ -3,7 +3,8 @@
  */
 let coursesData = [];
 let teachersData = [];
-let weeklyData = null;
+let weekCourses = [];   // every published class, unfiltered — the timetable source
+let weekRows = [];      // distinct start times across all classes, ascending
 let weekOffset = 0;
 let activeView = 'board';
 let refreshTimer = null;
@@ -43,7 +44,7 @@ function switchView(view) {
   document.getElementById('tab-board').classList.toggle('active', view === 'board');
   document.getElementById('tab-weekly').classList.toggle('active', view === 'weekly');
   App.setActiveNav(view);
-  if (view === 'weekly' && weeklyData) renderWeekly();
+  if (view === 'weekly') renderWeekly();
 }
 
 function resetFilters() {
@@ -98,19 +99,75 @@ async function loadCourses(silent = false) {
   renderCourses();
 }
 
-async function loadWeekly() {
-  const { data } = await App.get('/api/schedule');
-  if (data && data.schedule) {
-    weeklyData = data;
-    renderWeekly();
-  }
+async function loadWeekCourses() {
+  const { res, data } = await App.get('/api/courses');
+  if (!res.ok || !data || !data.courses) return;
+  weekCourses = data.courses;
+  weekRows = buildWeekRows(weekCourses);
+  renderWeekly();
 }
 
 // ---------------------------------------------------------------- course cards
+
+/**
+ * One source of truth for "what can this visitor do with this class?".
+ * Used by the board card, the timetable chip popover and the detail modal so
+ * the three surfaces can never disagree.
+ */
+function courseCta(c) {
+  if (!App.user) return { kind: 'login', label: I18N.t('v3_loginToBook'), style: 'primary' };
+  if (App.user.role === 'teacher') return { kind: 'none', label: I18N.t('v3_teacherNoBook'), style: 'ghost', disabled: true };
+  if (c.is_my_booking) return { kind: 'cancel', label: I18N.t('v3_btnCancel'), style: 'outline-danger' };
+  const past = new Date(c.end_utc).getTime() < Date.now();
+  const closed = ['cancelled', 'completed'].includes(c.run_status);
+  if (closed || past) return { kind: 'none', label: I18N.t('v3_classClosed'), style: 'ghost', disabled: true };
+  if (c.seats_left === 0) return { kind: 'none', label: I18N.t('v3_seatsFull'), style: 'ghost', disabled: true };
+  return { kind: 'book', label: I18N.t('v3_btnBook'), style: 'primary' };
+}
+
+/** Localised platform name; falls back to the raw key if a language is missing. */
+function platformText(key) {
+  if (!key) return '';
+  const k = `v3_platform_${key}`;
+  const hit = I18N.t(k);
+  return hit === k ? key : hit;
+}
+
+/** "Where is this class?" — a map pin for in-person, a meeting link for online. */
+function placeText(c) {
+  if (c.mode === 'online') {
+    const platform = platformText(c.online_platform);
+    return c.online_note ? `${platform} · ${c.online_note}` : platform;
+  }
+  return c.place_name;
+}
+
+function locationRowHtml(c) {
+  const e = App.esc;
+  if (c.mode === 'online') {
+    return `<div class="info-row"><span class="info-ico">🎥</span><div>
+        <div class="info-label">${e(I18N.t('v3_onlinePlatform'))}</div>
+        <div class="info-value">${e(placeText(c))}</div>
+      </div></div>`;
+  }
+  return `<div class="info-row"><span class="info-ico">📍</span><div>
+      <div class="info-label">${e(I18N.t('v3_placeLabel'))}</div>
+      <div class="info-value">${e(c.place_name)}</div>
+    </div></div>`;
+}
+
+function locationLinksHtml(c) {
+  const e = App.esc;
+  const calendar = `<a class="link-btn" href="${e(c.google_calendar_url)}" target="_blank" rel="noopener noreferrer">📅 ${e(I18N.t('v3_calendarAdd'))}</a>`;
+  if (c.mode === 'online') {
+    return `<a class="link-btn" href="${e(c.online_url)}" target="_blank" rel="noopener noreferrer">🎥 ${e(I18N.t('v3_joinOnline'))}</a>${calendar}`;
+  }
+  return `<a class="link-btn" href="${e(c.google_maps_url)}" target="_blank" rel="noopener noreferrer">🗺️ ${e(I18N.t('v3_mapOpen'))}</a>${calendar}`;
+}
+
 function courseCardHtml(c) {
   const e = App.esc;
   const past = new Date(c.end_utc).getTime() < Date.now();
-  const closed = ['cancelled', 'completed'].includes(c.run_status);
   const cls = ['course-card', past ? 'is-past' : '', c.run_status === 'cancelled' ? 'is-cancelled' : ''].join(' ');
   const pct = Math.min(100, Math.round((c.booked_count / Math.max(1, c.capacity)) * 100));
   const tzPill = `${e(c.timezone)} · ${e(c.gmt_offset)}`;
@@ -121,18 +178,13 @@ function courseCardHtml(c) {
     : '';
 
   let actions = '';
-  if (!App.user) {
-    actions = `<button class="btn btn-primary" data-action="login">${e(I18N.t('v3_loginToBook'))}</button>`;
-  } else if (App.user.role === 'teacher') {
-    actions = `<button class="btn btn-ghost" disabled>${e(I18N.t('v3_teacherNoBook'))}</button>`;
-  } else if (c.is_my_booking) {
-    actions = `<button class="btn btn-outline-danger" data-action="cancel" data-id="${c.id}">${e(I18N.t('v3_btnCancel'))}</button>`;
-  } else if (closed || past) {
-    actions = `<button class="btn btn-ghost" disabled>${e(I18N.t('v3_classClosed'))}</button>`;
-  } else if (c.seats_left === 0) {
-    actions = `<button class="btn btn-ghost" disabled>${e(I18N.t('v3_seatsFull'))}</button>`;
+  const cta = courseCta(c);
+  if (cta.kind === 'login') {
+    actions = `<button class="btn btn-primary" data-action="login">${e(cta.label)}</button>`;
+  } else if (cta.disabled) {
+    actions = `<button class="btn btn-ghost" disabled>${e(cta.label)}</button>`;
   } else {
-    actions = `<button class="btn btn-primary" data-action="book" data-id="${c.id}">${e(I18N.t('v3_btnBook'))}</button>`;
+    actions = `<button class="btn btn-${cta.style}" data-action="${cta.kind}" data-id="${c.id}">${e(cta.label)}</button>`;
   }
 
   return `
@@ -142,6 +194,7 @@ function courseCardHtml(c) {
         <span class="teacher-chip"><span class="avatar">${e(App.initial(c.teacher_name))}</span>${e(c.teacher_name)}</span>
         <span class="badge badge-${e(c.run_status)}">${App.statusIcon(c.run_status)} ${e(App.statusText(c.run_status))}</span>
         ${c.has_update ? `<span class="badge badge-update">● ${e(I18N.t('v3_updateBadge'))}</span>` : ''}
+        ${c.mode === 'online' ? `<span class="badge badge-online">🎥 ${e(I18N.t('v3_modeOnline'))}</span>` : ''}
         ${past ? `<span class="badge badge-completed">${e(I18N.t('v3_pastClass'))}</span>` : ''}
       </div>
       <h3 class="card-title">${e(c.title)}</h3>
@@ -156,7 +209,7 @@ function courseCardHtml(c) {
 
     <div class="google-bar">
       <div class="google-bar-head">
-        <span>${e(I18N.t('v3_googleTitle'))}</span>
+        <span>${c.mode === 'online' ? `🎥 ${e(I18N.t('v3_onlineClass'))}` : e(I18N.t('v3_googleTitle'))}</span>
         <span class="tz-pill">${tzPill}</span>
       </div>
       <div class="info-row"><span class="info-ico">🕐</span><div>
@@ -167,14 +220,8 @@ function courseCardHtml(c) {
         <div class="info-label">${e(I18N.t('v3_timeLocal'))} (${e(Intl.DateTimeFormat().resolvedOptions().timeZone)})</div>
         <div class="info-value">${e(App.fmtFullLocal(c.start_utc))}</div>
       </div></div>
-      <div class="info-row"><span class="info-ico">📍</span><div>
-        <div class="info-label">${e(I18N.t('v3_placeLabel'))}</div>
-        <div class="info-value">${e(c.place_name)}</div>
-      </div></div>
-      <div class="link-row">
-        <a class="link-btn" href="${e(c.google_maps_url)}" target="_blank" rel="noopener noreferrer">🗺️ ${e(I18N.t('v3_mapOpen'))}</a>
-        <a class="link-btn" href="${e(c.google_calendar_url)}" target="_blank" rel="noopener noreferrer">📅 ${e(I18N.t('v3_calendarAdd'))}</a>
-      </div>
+      ${locationRowHtml(c)}
+      <div class="link-row">${locationLinksHtml(c)}</div>
     </div>
 
     <div class="card-foot">
@@ -280,38 +327,54 @@ function renderCourses() {
 }
 
 // ---------------------------------------------------------------- card actions
+function findCourse(id) {
+  return coursesData.find(c => c.id === id) || weekCourses.find(c => c.id === id) || null;
+}
+
+async function bookCourse(id) {
+  const course = findCourse(id);
+  if (!course) return;
+  const yes = await App.confirm({
+    title: I18N.t('v3_bookConfirmTitle'),
+    html: App.esc(I18N.t('v3_bookConfirmMsg', { title: course.title })),
+    confirmText: I18N.t('v3_btnBook')
+  });
+  if (!yes) return;
+  const { res, data } = await App.post(`/api/courses/${id}/book`);
+  App.toast(data && (data.message || data.error) || I18N.t('errorNetwork'), res.ok ? 'success' : 'error');
+  if (res.ok) refreshBoth();
+}
+
+async function cancelCourse(id) {
+  const course = findCourse(id);
+  if (!course) return;
+  const yes = await App.confirm({
+    title: I18N.t('v3_cancelConfirmTitle'),
+    html: App.esc(I18N.t('v3_cancelConfirmMsg', { title: course.title })),
+    confirmText: I18N.t('v3_btnCancel'),
+    danger: true
+  });
+  if (!yes) return;
+  const { res, data } = await App.post(`/api/courses/${id}/cancel`);
+  App.toast(data && (data.message || data.error) || I18N.t('errorNetwork'), res.ok ? 'success' : 'error');
+  if (res.ok) refreshBoth();
+}
+
+/** A booking changes both surfaces, so refresh them together. */
+function refreshBoth() {
+  loadCourses(true);
+  loadWeekCourses();
+}
+
 document.addEventListener('click', async ev => {
   const btn = ev.target.closest('[data-action]');
   if (!btn) return;
   const action = btn.dataset.action;
   const id = Number(btn.dataset.id);
-  const course = coursesData.find(c => c.id === id);
   if (action === 'login') { window.location.href = '/login.html'; return; }
   if (action === 'detail') { openCourseDetail(id); return; }
-  if (action === 'book' && course) {
-    const yes = await App.confirm({
-      title: I18N.t('v3_bookConfirmTitle'),
-      html: App.esc(I18N.t('v3_bookConfirmMsg', { title: course.title })),
-      confirmText: I18N.t('v3_btnBook')
-    });
-    if (!yes) return;
-    const { res, data } = await App.post(`/api/courses/${id}/book`);
-    App.toast(data && (data.message || data.error) || I18N.t('errorNetwork'), res.ok ? 'success' : 'error');
-    if (res.ok) loadCourses(true);
-    return;
-  }
-  if (action === 'cancel' && course) {
-    const yes = await App.confirm({
-      title: I18N.t('v3_cancelConfirmTitle'),
-      html: App.esc(I18N.t('v3_cancelConfirmMsg', { title: course.title })),
-      confirmText: I18N.t('v3_btnCancel'),
-      danger: true
-    });
-    if (!yes) return;
-    const { res, data } = await App.post(`/api/courses/${id}/cancel`);
-    App.toast(data && (data.message || data.error) || I18N.t('errorNetwork'), res.ok ? 'success' : 'error');
-    if (res.ok) loadCourses(true);
-  }
+  if (action === 'book') { bookCourse(id); return; }
+  if (action === 'cancel') { cancelCourse(id); }
 });
 
 async function openCourseDetail(id) {
@@ -339,15 +402,12 @@ async function openCourseDetail(id) {
       ${c.notice_updated_at ? `<div class="notice-time">${e(App.fmtLocal(c.notice_updated_at))}</div>` : ''}</div>
     </div>
     <div class="detail-block">
-      <h4>${e(I18N.t('v3_googleTitle'))} · ${e(c.timezone)} ${e(c.gmt_offset)}</h4>
+      <h4>${c.mode === 'online' ? `🎥 ${e(I18N.t('v3_onlineClass'))}` : e(I18N.t('v3_googleTitle'))} · ${e(c.timezone)} ${e(c.gmt_offset)}</h4>
       <div class="google-bar" style="margin:0">
         <div class="info-row"><span class="info-ico">🕐</span><div><div class="info-label">${e(I18N.t('v3_timeTeacher'))}</div><div class="info-value">${e(App.fmtInZone(c.start_utc, c.timezone))} → ${e(App.fmtInZone(c.end_utc, c.timezone))}</div></div></div>
         <div class="info-row"><span class="info-ico">🌐</span><div><div class="info-label">${e(I18N.t('v3_timeLocal'))}</div><div class="info-value">${e(App.fmtFullLocal(c.start_utc))}</div></div></div>
-        <div class="info-row"><span class="info-ico">📍</span><div><div class="info-label">${e(I18N.t('v3_placeLabel'))}</div><div class="info-value">${e(c.place_name)}</div></div></div>
-        <div class="link-row">
-          <a class="link-btn" href="${e(c.google_maps_url)}" target="_blank" rel="noopener noreferrer">🗺️ ${e(I18N.t('v3_mapOpen'))}</a>
-          <a class="link-btn" href="${e(c.google_calendar_url)}" target="_blank" rel="noopener noreferrer">📅 ${e(I18N.t('v3_calendarAdd'))}</a>
-        </div>
+        ${locationRowHtml(c)}
+        <div class="link-row">${locationLinksHtml(c)}</div>
       </div>
     </div>
     <div class="detail-block">
@@ -355,63 +415,332 @@ async function openCourseDetail(id) {
       ${updates ? `<ul class="timeline">${updates}</ul>` : `<p class="panel-note">${e(I18N.t('v3_detailNoUpdates'))}</p>`}
     </div>
     ${bookings ? `<div class="detail-block"><h4>${e(I18N.t('v3_detailBookings'))} (${data.bookings.length})</h4><ul class="timeline">${bookings}</ul></div>` : ''}`;
-  App.showModal({ title: I18N.t('v3_detailTitle'), html, wide: true, buttons: [{ label: I18N.t('v3_detailClose'), style: 'ghost', close: true }] });
+  // The detail view is also the "more actions" surface: whatever the visitor
+  // could do on the card or in the timetable popover is available here too.
+  const cta = courseCta(c);
+  const buttons = [];
+  if (cta.kind === 'book') {
+    buttons.push({ label: cta.label, style: 'primary', close: true, onClick: () => bookCourse(c.id) });
+  } else if (cta.kind === 'cancel') {
+    buttons.push({ label: cta.label, style: 'danger', close: true, onClick: () => cancelCourse(c.id) });
+  } else if (cta.kind === 'login') {
+    buttons.push({ label: cta.label, style: 'primary', close: true, onClick: () => { window.location.href = '/login.html'; } });
+  } else if (cta.label) {
+    buttons.push({ label: cta.label, style: 'ghost', close: false });
+  }
+  buttons.push({ label: I18N.t('v3_detailClose'), style: 'ghost', close: true });
+  App.showModal({ title: I18N.t('v3_detailTitle'), html, wide: true, buttons });
 }
 
-// ---------------------------------------------------------------- weekly grid
+// ---------------------------------------------------------------- weekly timetable
+/**
+ * The weekly timetable is built from *published classes*, not from a recurring
+ * availability table: a cell is bookable only when a teacher has actually
+ * published a class in it. Every other cell stays "not bookable", which is the
+ * whole point of a week view — it mirrors what is really on offer.
+ */
+const pad2 = n => String(n).padStart(2, '0');
+const dayKeyOf = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const minuteLabel = m => `${pad2(Math.floor(m / 60) % 24)}:${pad2(m % 60)}`;
+const startMinuteOf = c => { const d = new Date(c.start_utc); return d.getHours() * 60 + d.getMinutes(); };
+const durationOf = c => Math.max(15, Math.round((new Date(c.end_utc).getTime() - new Date(c.start_utc).getTime()) / 60000));
+const endMinuteOf = c => (startMinuteOf(c) + durationOf(c)) % 1440;
+const byStart = (a, b) => String(a.start_utc).localeCompare(String(b.start_utc));
+
+/** Rows = every distinct start time ever published, ascending. */
+function buildWeekRows(courses) {
+  const map = new Map();
+  for (const c of courses) {
+    const s = startMinuteOf(c);
+    map.set(s, Math.max(map.get(s) || 0, s + durationOf(c)));
+  }
+  return [...map.entries()].sort((a, b) => a[0] - b[0]).map(([min, endMin]) => ({ min, endMin }));
+}
+
+/** dayKey -> startMinute -> [classes] */
+function buildWeekIndex(courses) {
+  const index = new Map();
+  for (const c of courses) {
+    const key = dayKeyOf(new Date(c.start_utc));
+    if (!index.has(key)) index.set(key, new Map());
+    const byMinute = index.get(key);
+    const s = startMinuteOf(c);
+    if (!byMinute.has(s)) byMinute.set(s, []);
+    byMinute.get(s).push(c);
+  }
+  return index;
+}
+
+function weekStateOf(c) {
+  if (c.is_my_booking) return 'mine';
+  if (new Date(c.end_utc).getTime() < Date.now()) return 'past';
+  if (['cancelled', 'completed'].includes(c.run_status)) return 'past';
+  if (c.seats_left === 0) return 'full';
+  return 'open';
+}
+
+function weekChipHtml(c, grow = 1, row = false) {
+  const e = App.esc;
+  const state = weekStateOf(c);
+  return `<button type="button" class="wk-course is-${state}${row ? ' wk-course-row' : ''}"
+      data-wk-id="${c.id}" style="--grow:${grow}">
+    <span class="wk-c-time">${e(minuteLabel(startMinuteOf(c)))}–${e(minuteLabel(endMinuteOf(c)))}</span>
+    <span class="wk-c-title">${c.mode === 'online' ? '<i class="wk-mode-ico">🎥</i>' : ''}${e(c.title)}</span>
+    <span class="wk-c-teacher"><i class="avatar">${e(App.initial(c.teacher_name))}</i>${e(c.teacher_name)}</span>
+    <span class="wk-c-meta">${c.has_update ? '<i class="wk-update-dot" aria-hidden="true"></i>' : ''}${c.booked_count}/${c.capacity}</span>
+  </button>`;
+}
+
+/**
+ * One cell, one time, one day. Several teachers at the same hour share the cell
+ * and split its height in proportion to how long their classes run.
+ */
+function weekCellHtml(day, list) {
+  const base = getHoliday(day) ? 'holiday-col' : '';
+  if (!list || !list.length) {
+    return `<td class="wk-td wk-td-empty ${base}"><span class="wk-none">${App.esc(I18N.t('v3_wkNotBookable'))}</span></td>`;
+  }
+  const sorted = [...list].sort(byStart);
+  const total = sorted.reduce((sum, c) => sum + durationOf(c), 0) || 1;
+  const chips = sorted
+    .map(c => weekChipHtml(c, Math.max(1, Math.round((durationOf(c) / total) * 100))))
+    .join('');
+  return `<td class="wk-td ${base}"><div class="wk-stack">${chips}</div></td>`;
+}
+
+function renderWeekTable(dates, index, shortDays) {
+  const e = App.esc;
+  const today = dayKeyOf(new Date());
+  document.getElementById('weekly-header').innerHTML =
+    `<th>${e(I18N.t('scheduleTimeHeader'))}</th>` +
+    dates.map((d, i) => {
+      const h = getHoliday(d);
+      const cls = [h ? 'holiday-col' : '', dayKeyOf(d) === today ? 'wk-today' : ''].filter(Boolean).join(' ');
+      return `<th class="${cls}">
+        <div class="th-day">${e(shortDays[i])}</div>
+        <div class="th-date">${e(I18N.formatDateShort(d))}</div>
+        ${h ? `<div class="th-holiday" title="${e(h[3])}">${h[2]}</div>` : ''}
+      </th>`;
+    }).join('');
+
+  const body = document.getElementById('weekly-body');
+  if (!weekRows.length) {
+    body.innerHTML = `<tr><td colspan="8" class="wk-table-empty">${e(I18N.t('v3_noCoursesYet'))}<br><small>${e(I18N.t('v3_noCoursesYetHint'))}</small></td></tr>`;
+    return;
+  }
+  body.innerHTML = weekRows.map(row => {
+    const cells = dates.map(d => {
+      const byMinute = index.get(dayKeyOf(d));
+      return weekCellHtml(d, byMinute ? byMinute.get(row.min) : null);
+    }).join('');
+    return `<tr>
+      <td class="wk-time"><strong>${e(minuteLabel(row.min))}</strong><span>${e(minuteLabel(row.endMin))}</span></td>
+      ${cells}
+    </tr>`;
+  }).join('');
+}
+
+/** Phone layout: the same week as a stack of day cards, no sideways scrolling. */
+function renderWeekList(dates, index, shortDays) {
+  const e = App.esc;
+  const today = dayKeyOf(new Date());
+  document.getElementById('week-list').innerHTML = dates.map((d, i) => {
+    const h = getHoliday(d);
+    const byMinute = index.get(dayKeyOf(d));
+    const list = byMinute ? [...byMinute.values()].flat().sort(byStart) : [];
+    return `<section class="wk-day${dayKeyOf(d) === today ? ' is-today' : ''}">
+      <header class="wk-day-head">
+        <span class="wk-day-name">${e(shortDays[i])}</span>
+        <span class="wk-day-date">${e(I18N.formatDateShort(d))}</span>
+        ${h ? `<span class="wk-day-holiday">${h[2]} ${e(h[3])}</span>` : ''}
+        <span class="wk-day-count">${list.length ? e(I18N.t('v3_resultCount', { n: list.length })) : ''}</span>
+      </header>
+      <div class="wk-day-body">
+        ${list.length
+          ? list.map(c => weekChipHtml(c, 1, true)).join('')
+          : `<div class="wk-day-empty">${e(I18N.t('v3_wkNotBookable'))}</div>`}
+      </div>
+    </section>`;
+  }).join('');
+}
+
+function renderWeekBanner(dates, count) {
+  const el = document.getElementById('wk-banner');
+  if (!el) return;
+  const weekEnd = dates[6].getTime() + 86400000 - 1;
+  if (count > 0) {
+    if (weekEnd >= Date.now()) { el.className = 'wk-banner hidden'; el.innerHTML = ''; return; }
+    el.className = 'wk-banner is-past';
+    el.innerHTML = `<span class="wk-banner-ico">🗂️</span><span>${App.esc(I18N.t('v3_wkPastWeek'))}</span>`;
+    return;
+  }
+  el.className = 'wk-banner';
+  const text = weekCourses.length ? I18N.t('v3_wkEmptyWeek') : I18N.t('v3_noCoursesYet');
+  el.innerHTML = `<span class="wk-banner-ico">🗓️</span><span>${App.esc(text)}</span>` +
+    (weekCourses.length
+      ? `<button class="btn btn-soft btn-sm" type="button" onclick="jumpToLatestWeek()">${App.esc(I18N.t('v3_wkJumpLatest'))}</button>`
+      : '');
+}
+
 function renderWeekly() {
-  if (!weeklyData) return;
-  const { timeSlots, schedule } = weeklyData;
   const dates = getWeekDates(weekOffset);
   const shortDays = I18N.getDayShortNames();
   document.getElementById('week-range-text').textContent = I18N.formatWeekRange(dates[0], dates[6]);
-  const head = document.getElementById('weekly-header');
-  head.innerHTML = `<th>${App.esc(I18N.t('scheduleTimeHeader'))}</th>` + dates.map((d, i) => {
-    const h = getHoliday(d);
-    return `<th class="${h ? 'holiday-col' : ''}"><div class="th-day">${App.esc(shortDays[i])}</div><div class="th-date">${App.esc(I18N.formatDateShort(d))}</div>${h ? `<div class="th-holiday" title="${App.esc(h[3])}">${h[2]}</div>` : ''}</th>`;
-  }).join('');
-  const body = document.getElementById('weekly-body');
-  body.innerHTML = timeSlots.map(slot => {
-    const [start, end] = slot.split('-');
-    const cells = dates.map((d, di) => {
-      const cell = schedule[slot] && schedule[slot][di];
-      const holiday = getHoliday(d);
-      if (!cell) return `<td class="${holiday ? 'holiday-col' : ''}">—</td>`;
-      let cls = 'slot-not', text = I18N.t('slotNotAvailable'), click = '';
-      if (cell.status === 'available') {
-        cls = 'slot-available clickable'; text = I18N.t('slotAvailable');
-        click = `onclick="bookSlot(${cell.id})"`;
-      } else if (cell.status === 'booked') {
-        if (App.user && cell.bookedBy === App.user.id) {
-          cls = 'slot-mine clickable'; text = `${cell.bookedName || ''} · ${I18N.t('cancelClickToCancel')}`;
-          click = `onclick="cancelSlot(${cell.id})"`;
-        } else {
-          cls = 'slot-booked'; text = `${cell.bookedName || ''} · ${I18N.t('slotBooked')}`;
-        }
-      }
-      return `<td class="${holiday ? 'holiday-col' : ''}"><span class="slot-badge ${cls}" ${click}>${App.esc(text)}</span></td>`;
-    }).join('');
-    return `<tr><td>${App.esc(I18N.formatTime(start))}<br>${App.esc(I18N.formatTime(end))}</td>${cells}</tr>`;
-  }).join('');
-  const legendMy = document.getElementById('legend-my');
-  if (legendMy) legendMy.classList.toggle('hidden', !App.user);
+  const tzEl = document.getElementById('wk-tz');
+  if (tzEl) tzEl.textContent = I18N.t('v3_wkTimezone', { tz: Intl.DateTimeFormat().resolvedOptions().timeZone });
+
+  const index = buildWeekIndex(weekCourses);
+  let count = 0;
+  for (const d of dates) {
+    const byMinute = index.get(dayKeyOf(d));
+    if (!byMinute) continue;
+    for (const list of byMinute.values()) count += list.length;
+  }
+  const countEl = document.getElementById('wk-count');
+  if (countEl) countEl.textContent = I18N.t('v3_wkWeekCount', { n: count });
+
+  renderWeekTable(dates, index, shortDays);
+  renderWeekList(dates, index, shortDays);
+  renderWeekBanner(dates, count);
+  hideWeekPop();
 }
 
 function prevWeek() { weekOffset--; renderWeekly(); }
 function nextWeek() { weekOffset++; renderWeekly(); }
 function goToday() { weekOffset = 0; renderWeekly(); }
 
-async function bookSlot(id) {
-  if (!App.user) { App.toast(I18N.t('bookLoginFirst'), 'info'); setTimeout(() => location.href = '/login.html', 1200); return; }
-  const { res, data } = await App.post('/api/schedule/book', { slotId: id });
-  App.toast((data && (data.message || data.error)) || I18N.t('errorNetwork'), res.ok ? 'success' : 'error');
-  if (res.ok) loadWeekly();
+/** Jump to the most recent week that actually has classes (demo history). */
+function jumpToLatestWeek() {
+  if (!weekCourses.length) return;
+  const latest = weekCourses.reduce((a, b) => (new Date(a.start_utc) > new Date(b.start_utc) ? a : b));
+  const target = new Date(latest.start_utc);
+  target.setHours(0, 0, 0, 0);
+  target.setDate(target.getDate() - ((target.getDay() + 6) % 7)); // back to Monday
+  const base = getWeekDates(0)[0];
+  weekOffset = Math.round((target.getTime() - base.getTime()) / (7 * 86400000));
+  renderWeekly();
 }
-async function cancelSlot(id) {
-  const { res, data } = await App.post('/api/schedule/cancel', { slotId: id });
-  App.toast((data && (data.message || data.error)) || I18N.t('errorNetwork'), res.ok ? 'success' : 'error');
-  if (res.ok) loadWeekly();
+
+// ---------------------------------------------------------------- hover preview
+let weekPop = null;
+let weekPopTimer = null;
+let weekPopCourse = null;
+
+function ensureWeekPop() {
+  if (weekPop) return weekPop;
+  weekPop = document.createElement('div');
+  weekPop.className = 'wk-pop hidden';
+  weekPop.id = 'week-pop';
+  weekPop.setAttribute('role', 'dialog');
+  document.body.appendChild(weekPop);
+  weekPop.addEventListener('mouseenter', () => clearTimeout(weekPopTimer));
+  weekPop.addEventListener('mouseleave', scheduleWeekPopHide);
+  weekPop.addEventListener('click', ev => {
+    const btn = ev.target.closest('[data-wk-act]');
+    if (!btn) return;
+    const id = Number(btn.dataset.id);
+    const act = btn.dataset.wkAct;
+    hideWeekPop();
+    if (act === 'book') bookCourse(id);
+    else if (act === 'cancel') cancelCourse(id);
+    else openCourseDetail(id);
+  });
+  return weekPop;
 }
+
+function hideWeekPop() {
+  clearTimeout(weekPopTimer);
+  weekPopCourse = null;
+  if (weekPop) {
+    weekPop.classList.add('hidden');
+    weekPop.innerHTML = '';
+  }
+}
+
+function scheduleWeekPopHide() {
+  clearTimeout(weekPopTimer);
+  weekPopTimer = setTimeout(hideWeekPop, 160);
+}
+
+function weekPopHtml(c) {
+  const e = App.esc;
+  const cta = courseCta(c);
+  const state = weekStateOf(c);
+  let actions = '';
+  if (cta.kind === 'book' || cta.kind === 'cancel') {
+    actions += `<button class="btn btn-${cta.style} btn-sm" type="button" data-wk-act="${cta.kind}" data-id="${c.id}">${e(cta.label)}</button>`;
+  } else if (cta.kind === 'login') {
+    actions += `<a class="btn btn-primary btn-sm" href="/login.html">${e(cta.label)}</a>`;
+  } else {
+    actions += `<button class="btn btn-ghost btn-sm" type="button" disabled>${e(cta.label)}</button>`;
+  }
+  if (c.mode === 'online' && c.online_url) {
+    actions += `<a class="btn btn-soft btn-sm" href="${e(c.online_url)}" target="_blank" rel="noopener noreferrer">🎥 ${e(I18N.t('v3_joinOnline'))}</a>`;
+  }
+  actions += `<button class="btn btn-ghost btn-sm" type="button" data-wk-act="detail" data-id="${c.id}">${e(I18N.t('v3_btnDetails'))}</button>`;
+
+  return `
+    <div class="wk-pop-head">
+      <span class="badge badge-${e(c.run_status)}">${App.statusIcon(c.run_status)} ${e(App.statusText(c.run_status))}</span>
+      ${c.has_update ? `<span class="badge badge-update">● ${e(I18N.t('v3_updateBadge'))}</span>` : ''}
+      ${state === 'mine' ? `<span class="badge badge-update">✓ ${e(I18N.t('v3_wkMine'))}</span>` : ''}
+    </div>
+    <h4 class="wk-pop-title">${e(c.title)}</h4>
+    <div class="wk-pop-row"><span class="wk-pop-ico">🕐</span><span><strong>${e(minuteLabel(startMinuteOf(c)))}–${e(minuteLabel(endMinuteOf(c)))}</strong> · ${e(App.tzAbbr(c.start_utc, c.timezone))}</span></div>
+    <div class="wk-pop-row"><span class="wk-pop-ico">👤</span><span>${e(c.teacher_name)}</span></div>
+    <div class="wk-pop-row"><span class="wk-pop-ico">${c.mode === 'online' ? '🎥' : '📍'}</span><span>${e(placeText(c))}</span></div>
+    <div class="wk-pop-row"><span class="wk-pop-ico">🌐</span><span>${e(I18N.t('v3_timeLocal'))} · ${e(App.fmtFullLocal(c.start_utc))}</span></div>
+    <div class="wk-pop-seats">${e(c.seats_left > 0 ? I18N.t('v3_seats', { n: c.seats_left }) : I18N.t('v3_seatsFull'))} · ${c.booked_count}/${c.capacity}</div>
+    <div class="wk-pop-notice${c.notice ? '' : ' is-empty'}">${c.notice ? e(c.notice) : e(I18N.t('v3_noticeEmpty'))}</div>
+    <div class="wk-pop-actions">${actions}</div>`;
+}
+
+function showWeekPop(c, anchor) {
+  if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+  const pop = ensureWeekPop();
+  if (weekPopCourse && weekPopCourse.id === c.id && !pop.classList.contains('hidden')) return;
+  weekPopCourse = c;
+  pop.innerHTML = weekPopHtml(c);
+  pop.classList.remove('hidden');
+  pop.style.visibility = 'hidden';
+
+  const rect = anchor.getBoundingClientRect();
+  const pw = pop.offsetWidth;
+  const ph = pop.offsetHeight;
+  const gap = 8;
+  let left = rect.left + rect.width / 2 - pw / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+  let top = rect.bottom + gap;
+  if (top + ph > window.innerHeight - 8) top = Math.max(8, rect.top - ph - gap);
+  pop.style.left = `${Math.round(left)}px`;
+  pop.style.top = `${Math.round(top)}px`;
+  pop.style.visibility = '';
+}
+
+document.addEventListener('mouseover', ev => {
+  const chip = ev.target.closest('.wk-course');
+  if (!chip || chip.contains(ev.relatedTarget)) return;
+  clearTimeout(weekPopTimer);
+  const c = weekCourses.find(x => x.id === Number(chip.dataset.wkId));
+  if (c) showWeekPop(c, chip);
+});
+
+document.addEventListener('mouseout', ev => {
+  const chip = ev.target.closest('.wk-course');
+  if (!chip || chip.contains(ev.relatedTarget)) return;
+  if (weekPop && weekPop.contains(ev.relatedTarget)) return;
+  scheduleWeekPopHide();
+});
+
+document.addEventListener('click', ev => {
+  const chip = ev.target.closest('.wk-course');
+  if (!chip) return;
+  hideWeekPop();
+  openCourseDetail(Number(chip.dataset.wkId));
+});
+
+window.addEventListener('scroll', hideWeekPop, { passive: true, capture: true });
+window.addEventListener('resize', hideWeekPop);
 
 // ---------------------------------------------------------------- boot
 ['f-search', 'f-teacher', 'f-status', 'f-mine'].forEach(id => {
@@ -453,12 +782,12 @@ async function loadSiteSettings() {
 App.boot({
   onReady: async () => {
     App.setActiveNav('board');
-    await Promise.all([loadTeachers(), loadCourses(), loadWeekly(), loadSiteSettings()]);
+    await Promise.all([loadTeachers(), loadCourses(), loadWeekCourses(), loadSiteSettings()]);
     clearInterval(refreshTimer);
     refreshTimer = setInterval(() => {
       if (document.visibilityState === 'visible' && !document.body.classList.contains('modal-open')) {
         loadCourses(true);
-        if (activeView === 'weekly') loadWeekly();
+        if (activeView === 'weekly') loadWeekCourses();
       }
     }, 20000);
   },
@@ -472,6 +801,6 @@ App.boot({
       <option value="cancelled">${App.esc(I18N.t('v3_statusCancelled'))}</option>
       <option value="completed">${App.esc(I18N.t('v3_statusCompleted'))}</option>`;
     loadCourses(true);
-    if (weeklyData) renderWeekly();
+    renderWeekly();
   }
 });

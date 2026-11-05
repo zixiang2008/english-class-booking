@@ -57,6 +57,8 @@ v2 只有一个循环周表，回答不了两个真正重要的问题：*这门�
 | 课程审核 | 无 | v3.1 课程审核：任意课程可下架与恢复，学生同步看到原因 |
 | 管理留痕 | 无 | v3.1 操作日志：每条管理动作记录执行人、对象、原因与时间 |
 | 课程广场 | 单一列表，已结束的课混在中间 | v3.2 三段式：下周课程（高亮）/ 更远的课程 / 已结束课程（默认折叠） |
+| 周课表 | 固定循环表，永远显示「可约」 | v3.2.2 改为渲染真实已发布的课程，同格多课按**时长比例**分配；没有课程的格子明确标注「不可约」 |
+| 上课方式 | 仅线下 | v3.3 线下 **或** 线上：腾讯会议、Zoom、Teams、Google Meet、VooV、钉钉、微信、其他，并填写会议链接 |
 
 ---
 
@@ -65,7 +67,9 @@ v2 只有一个循环周表，回答不了两个真正重要的问题：*这门�
 ### 2.1 老师端（`/admin.html`）
 
 - **工作台概览：** 我的课程、已确认、待确认、预约数、学生数、站点老师数
-- **发布课程：** 标题、通知栏（≤100 字）、时区、日期、开始/结束时间、地点、Google Maps 地址、名额、开课状态
+- **发布课程：** 标题、通知栏（≤100 字）、时区、日期、开始/结束时间、**上课方式**、名额、开课状态
+  - **线下**（默认）：地点 + Google Maps 地址，均必填
+  - **线上**：平台（8 选 1）+ 会议链接（必填，任意 `https://` 会议地址均可）+ 会议号 / 密码备注（选填）；地图字段自动隐藏且不再必填
 - **编辑课程：** 任意字段，保存后自动递增 `revision` 并写入更新历史
 - **状态切换：** 待确认 / 确认开课 / 已取消 / 已完成，可附状态说明
 - **实时预约流：** 学生姓名、用户名、电话、课程、上课时间、预约时间
@@ -83,10 +87,16 @@ v2 只有一个循环周表，回答不了两个真正重要的问题：*这门�
   - 老师、开课状态、是否有更新
   - 通知栏（100 字以内）
   - 谷歌地址栏：IANA 时区 + GMT 偏移、老师当地时间、我的当地时间、地点、Google Maps 链接、加入 Google 日历
+    - **线上课程**改为会议栏：🎥 平台名称、会议号 / 密码、**进入会议** 按钮，日历链接直接指向会议地址
   - 剩余名额与已预约人数
 - **一键预约 / 取消预约**，重复预约、满员、已取消课程会被拦截
 - **课程详情：** 完整信息、更新历史、老师可见的预约学生
-- **周课表视图：** 保留旧的循环时间表
+- **周课表（v3.2.2）：** 行 = 实际发布过的开始时间，列 = 周一到周日
+  - 每门已发布课程都是格子里的一张卡片；同一时段有多位老师时，同格内按**课程时长比例**分配高度
+  - 悬停卡片弹出预览，可直接**预订 / 取消 / 进入会议 / 查看详情**；点击卡片打开详情弹窗
+  - 没有课程发布的格子显示**不可约**，不会再出现「没人发布却能约」的时段
+  - `‹ ›` 翻周，无课周可一键「跳到最近有课的一周」，已过周顶部提示「这一周已经结束」
+  - 小于 760px 时表格切换为 7 张日卡，数据完全一致
 - **登录页：** 展示平台免责声明（见第 12 节）
 
 ### 2.3 超级管理员端（`/superadmin.html`，仅 `is_admin` 可见）
@@ -275,6 +285,7 @@ users            id, username, password_hash, display_name, phone, role, google_
 schedule         id, day_of_week, time_slot, status, booked_by, booked_name   -- v2 周表
 courses          id, teacher_id, title, notice, notice_updated_at,
                  timezone, lesson_date, start_time, end_time, start_utc, end_utc,
+                 mode, online_platform, online_url, online_note,          -- v3.3
                  place_name, google_maps_url, capacity, run_status, status_note,
                  revision, created_at, updated_at
 course_bookings  id, course_id, student_id, status, created_at, cancelled_at
@@ -287,6 +298,11 @@ admin_actions    id, admin_id, admin_name, target_user_id, target_name,
 
 - `start_time` / `end_time` 是老师本地墙钟时间，`timezone` 是 IANA 时区；
 - `start_utc` / `end_utc` 是服务端换算出的真实 UTC 时刻，所有排序、ICS、日历链接都基于它；
+- `mode` 为 `offline`（默认）或 `online`；`online_platform` 取值
+  `tencent_meeting / zoom / teams / google_meet / voov / dingtalk / wechat / other`，
+  `online_url` 是会议链接，`online_note` 是选填的会议号 / 密码（≤120 字）；
+- 旧数据自动迁移：`ALTER TABLE courses ADD COLUMN mode TEXT NOT NULL DEFAULT 'offline'`
+  包在 `try/catch` 中，v3.3 之前的所有课程仍然读作线下，`place_name` / `google_maps_url` 原样保留；
 - `run_status` 决定学生能否预约；
 - `revision` 大于 1 时前端显示「有更新」；
 - `is_admin` 独立于 `role`，是系统最高权限标记；`status='banned'` 阻止登录，
@@ -316,7 +332,7 @@ admin_actions    id, admin_id, admin_name, target_user_id, target_name,
 | 方法 | 路径 | 权限 | 说明 |
 | --- | --- | --- | --- |
 | GET | `/api/courses` | 公开 | 支持 `teacher=me|ID`、`status`、`q`、`mine=1` |
-| GET | `/api/courses/config` | 公开 | 时区列表、状态枚举、通知栏上限 |
+| GET | `/api/courses/config` | 公开 | 时区列表、状态枚举、通知栏上限、`onlinePlatforms`（8 个 key + 名称） |
 | GET | `/api/courses/teachers` | 公开 | 老师及其课程数 |
 | GET | `/api/courses/:id` | 公开 | 课程详情 + 更新 + 老师可见的预约 |
 | GET | `/api/courses/:id/updates` | 公开 | 更新历史 |
@@ -368,18 +384,18 @@ admin_actions    id, admin_id, admin_name, target_user_id, target_name,
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/healthz` | `{ ok: true, version: "3.2.1" }` |
+| GET | `/healthz` | `{ ok: true, version: "3.3.0" }` |
 
 ---
 
 ## 9. 测试
 
 ```bash
-npm test              # 68 项：接口契约回归（自启动、隔离数据库）
+npm test              # 74 项：接口契约回归（自启动、隔离数据库）
 npm run test:e2e      # 54 项：多老师 / 多学生完整业务旅程与边界验收
 npm run test:admin    # 35 项：超管权限、封禁/禁言/限制发布、提权、审核、日志、级联删除
 npm run check:i18n    # 校验所有被引用的词条在四种语言中都存在
-npm run test:ui       # 37 项真实浏览器冒烟（需先启动服务）
+npm run test:ui       # 47 项真实浏览器冒烟（需先启动服务）
 npm run test:visual   # 25 项多视口视觉审计（需先启动服务）
 npm run check         # i18n + 语法 + 集成测试
 ```
@@ -394,7 +410,7 @@ BASE=http://127.0.0.1:3210 npm run test:ui             # 终端 2
 BASE=http://127.0.0.1:3210 npm run test:visual         # 终端 2（会构造极端数据）
 ```
 
-`test:ui` 覆盖：课程卡片渲染、通知栏、谷歌地址栏、时区徽章、多老师、语言切换、登录、教师工作台、发布表单必填项与 100 字计数器、日历页、手机视口无横向溢出与触控尺寸、JS 异常、HTTP 失败请求。
+`test:ui` 覆盖：课程卡片渲染、通知栏、谷歌地址栏、时区徽章、多老师、语言切换、登录、教师工作台、发布表单必填项与 100 字计数器、**线下 ↔ 线上切换**（字段互换、8 个平台齐全、config 接口给出同一份平台清单）、**周课表**（卡片渲染、7 个日列、空格标注「不可约」、手机日卡与表格一致）、日历页、手机视口无横向溢出与触控尺寸、JS 异常、HTTP 失败请求。
 
 `test:visual` 会写入 5 位老师、超长标题 / 100 字通知 / 超长地名 / 同时段 / 取消 / 已结束等极端数据，然后在 1440 / 1024 / 820 / 390 / 360 五个视口检查横向溢出、卡片列数、长文本撑破卡片与按钮触控高度，并截图到系统临时目录。
 
@@ -498,6 +514,9 @@ sudo sh -c 'printf "\n127.0.0.1 en.caishen.today\n" >> /etc/hosts'
 
 ## 13. 版本历史
 
+- **v3.3.0** —— 线上课程：线下 / 线上两种上课方式，8 个会议平台，会议链接取代地图，
+  并在课程卡片、详情、周表预览、日历页、ICS、Google 日历全链路生效；
+  周课表重写为真实课程视图（按时长比例堆叠、悬停预览、空格「不可约」、手机日卡）
 - **v3.2.1** —— 登录页：演示账号提示改为平台免责声明
 - **v3.2.0** —— 课程广场三段式：下周课程 / 更远的课程 / 已结束课程
 - **v3.1.0** —— 超级管理员：账号治理、限制措施、课程审核、操作日志

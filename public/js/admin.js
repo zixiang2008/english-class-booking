@@ -13,6 +13,14 @@ let refreshTimer = null;
 
 const e = App.esc;
 
+/** Localised online-platform name, falling back to the server label. */
+function platformName(key, fallback) {
+  if (!key) return fallback || '';
+  const k = `v3_platform_${key}`;
+  const hit = I18N.t(k);
+  return hit === k ? (fallback || key) : hit;
+}
+
 function switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.admin-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
@@ -63,12 +71,14 @@ async function loadMyCourses() {
       <div class="list-main">
         <div class="list-title">${e(c.title)} <span class="badge badge-${e(c.run_status)}">${App.statusIcon(c.run_status)} ${e(App.statusText(c.run_status))}</span>
           ${c.has_update ? `<span class="badge badge-update">✨ ${e(I18N.t('v3_updateBadge'))}</span>` : ''}</div>
-        <div class="list-sub">🕐 ${e(App.fmtInZone(c.start_utc, c.timezone))} (${e(c.timezone)} ${e(c.gmt_offset)}) · 📍 ${e(c.place_name)} · 👥 ${c.booked_count}/${c.capacity}</div>
+        <div class="list-sub">🕐 ${e(App.fmtInZone(c.start_utc, c.timezone))} (${e(c.timezone)} ${e(c.gmt_offset)}) · ${c.mode === 'online' ? `🎥 ${e(platformName(c.online_platform, c.online_platform_label))}` : `📍 ${e(c.place_name)}`} · 👥 ${c.booked_count}/${c.capacity}</div>
         <div class="list-sub">📢 ${c.notice ? e(c.notice.slice(0, 70)) : e(I18N.t('v3_noticeEmpty'))}</div>
       </div>
       <div class="list-actions">
         <select class="status-select" data-status="${c.id}" style="width:auto;min-height:34px;padding:5px 8px;font-size:12px" aria-label="Status">${opts}</select>
-        <a class="btn btn-ghost btn-sm" href="${e(c.google_maps_url)}" target="_blank" rel="noopener noreferrer">🗺️</a>
+        ${c.mode === 'online'
+          ? `<a class="btn btn-ghost btn-sm" href="${e(c.online_url)}" target="_blank" rel="noopener noreferrer">🎥</a>`
+          : `<a class="btn btn-ghost btn-sm" href="${e(c.google_maps_url)}" target="_blank" rel="noopener noreferrer">🗺️</a>`}
         <button class="btn btn-ghost btn-sm" type="button" data-edit="${c.id}">✏️ ${e(I18N.t('v3_edit'))}</button>
         <button class="btn btn-outline-danger btn-sm" type="button" data-delete="${c.id}">🗑 ${e(I18N.t('v3_delete'))}</button>
       </div>
@@ -152,8 +162,8 @@ function isGoogleMapsUrl(raw) {
   } catch (_) { return false; }
 }
 
-function fieldHtml(key, label, control, { full = false, req = false, hint = '' } = {}) {
-  return `<div class="field ${full ? 'full' : ''}" data-key="${key}">
+function fieldHtml(key, label, control, { full = false, req = false, hint = '', id = '', cls = '' } = {}) {
+  return `<div class="field ${full ? 'full' : ''} ${cls}" data-key="${key}"${id ? ` id="${id}"` : ''}>
     <label for="cf-${key}">${e(label)}${req ? `<span class="req">${e(I18N.t('v3_required'))}</span>` : `<span class="opt">${e(I18N.t('v3_formOptional'))}</span>`}</label>
     ${control}
     ${hint ? `<div class="field-hint">${e(hint)}</div>` : ''}
@@ -169,6 +179,9 @@ async function openCourseEditor(courseId = null) {
     `<option value="${e(t)}" ${t === tz ? 'selected' : ''}>${e(t)}</option>`).join('');
   const statusOptions = coursesConfig.runStatuses.map(s =>
     `<option value="${s}" ${(c ? c.run_status : 'confirmed') === s ? 'selected' : ''}>${e(App.statusText(s))}</option>`).join('');
+  const online = !!(c && c.mode === 'online');
+  const platformOptions = (coursesConfig.onlinePlatforms || []).map(p =>
+    `<option value="${e(p.key)}" ${(c && c.online_platform === p.key) ? 'selected' : ''}>${e(platformName(p.key, p.label))}</option>`).join('');
 
   const html = `
   <div class="form-grid">
@@ -179,16 +192,35 @@ async function openCourseEditor(courseId = null) {
        <div class="counter" id="cf-counter">0 / ${coursesConfig.maxNoticeLength}</div>`,
       { full: true, hint: I18N.t('v3_formNoticeHint') })}
 
-    <div class="form-section-title">📍 ${e(I18N.t('v3_formGoogleSection'))}</div>
+    <div class="form-section-title">🕐 ${e(I18N.t('v3_formTimeSection'))}</div>
     ${fieldHtml('timezone', I18N.t('v3_formTimezone'), `<select id="cf-timezone">${tzOptions}</select>`, { req: true })}
     ${fieldHtml('lesson_date', I18N.t('v3_formDate'), `<input type="date" id="cf-lesson_date" value="${e(c ? c.lesson_date : localDateOffset(1))}">`, { req: true })}
     ${fieldHtml('start_time', I18N.t('v3_formStart'), `<input type="time" id="cf-start_time" value="${e(c ? c.start_time : '10:00')}">`, { req: true })}
     ${fieldHtml('end_time', I18N.t('v3_formEnd'), `<input type="time" id="cf-end_time" value="${e(c ? c.end_time : '11:00')}">`, { req: true })}
-    ${fieldHtml('place_name', I18N.t('v3_formPlace'), `<input id="cf-place_name" maxlength="120" value="${e(c ? c.place_name : '')}" placeholder="e.g. Sukhumvit Coffee Lab, Bangkok">`, { full: true, req: true })}
+
+    <div class="form-section-title">📍 ${e(I18N.t('v3_formLocationSection'))}</div>
+    <div class="field full" data-key="mode">
+      <label>${e(I18N.t('v3_modeLabel'))}</label>
+      <div class="mode-switch" id="cf-mode-switch" role="group" aria-label="${e(I18N.t('v3_modeLabel'))}">
+        <button type="button" class="mode-btn${online ? '' : ' active'}" data-mode="offline">🏫 ${e(I18N.t('v3_modeOffline'))}</button>
+        <button type="button" class="mode-btn${online ? ' active' : ''}" data-mode="online">🎥 ${e(I18N.t('v3_modeOnline'))}</button>
+      </div>
+      <input type="hidden" id="cf-mode" value="${online ? 'online' : 'offline'}">
+      <div class="field-hint">${e(I18N.t('v3_modeHint'))}</div>
+      <div class="field-error"></div>
+    </div>
+
+    ${fieldHtml('place_name', I18N.t('v3_formPlace'), `<input id="cf-place_name" maxlength="120" value="${e(c ? c.place_name : '')}" placeholder="e.g. Sukhumvit Coffee Lab, Bangkok">`, { full: true, req: true, id: 'field-offline-place', cls: online ? 'hidden' : '' })}
     ${fieldHtml('google_maps_url', I18N.t('v3_formGoogle'),
       `<input type="url" id="cf-google_maps_url" value="${e(c ? c.google_maps_url : '')}" placeholder="https://maps.app.goo.gl/… or https://www.google.com/maps/…">
        <div class="field-hint">${e(I18N.t('v3_formGoogleHint'))}</div>
-       <button class="btn btn-ghost btn-sm" type="button" style="align-self:flex-start;margin-top:8px" onclick="checkMapLink()">🔗 ${e(I18N.t('v3_formGooglePreview'))}</button>`, { full: true, req: true })}
+       <button class="btn btn-ghost btn-sm" type="button" style="align-self:flex-start;margin-top:8px" onclick="checkMapLink()">🔗 ${e(I18N.t('v3_formGooglePreview'))}</button>`, { full: true, req: true, id: 'field-offline-map', cls: online ? 'hidden' : '' })}
+
+    ${fieldHtml('online_platform', I18N.t('v3_onlinePlatform'), `<select id="cf-online_platform">${platformOptions}</select>`, { full: true, req: true, id: 'field-online-platform', cls: online ? '' : 'hidden' })}
+    ${fieldHtml('online_url', I18N.t('v3_onlineLink'),
+      `<input type="url" id="cf-online_url" maxlength="500" value="${e(c ? c.online_url : '')}" placeholder="https://zoom.us/j/… · https://meeting.tencent.com/…">
+       <div class="field-hint">${e(I18N.t('v3_onlineHint'))}</div>`, { full: true, req: true, id: 'field-online-url', cls: online ? '' : 'hidden' })}
+    ${fieldHtml('online_note', I18N.t('v3_onlineNote'), `<input id="cf-online_note" maxlength="120" value="${e(c ? c.online_note : '')}" placeholder="Meeting ID / passcode">`, { full: true, id: 'field-online-note', cls: online ? '' : 'hidden' })}
 
     <div class="form-section-title">⚙️ ${e(I18N.t('v3_formRunStatus'))}</div>
     ${fieldHtml('capacity', I18N.t('v3_formCapacity'), `<input type="number" id="cf-capacity" min="1" max="50" value="${c ? c.capacity : 4}">`, { req: true })}
@@ -213,6 +245,33 @@ async function openCourseEditor(courseId = null) {
   };
   noticeEl.addEventListener('input', updateCounter);
   updateCounter();
+  document.querySelectorAll('#cf-mode-switch .mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => applyCourseMode(btn.dataset.mode));
+  });
+}
+
+/** Show only the fields that belong to the chosen class format. */
+function applyCourseMode(mode) {
+  const input = document.getElementById('cf-mode');
+  if (!input) return;
+  input.value = mode;
+  const isOnline = mode === 'online';
+  document.querySelectorAll('#cf-mode-switch .mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+  const toggle = (id, show) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('hidden', !show);
+    el.classList.remove('invalid');
+    const err = el.querySelector('.field-error');
+    if (err) err.textContent = '';
+  };
+  toggle('field-offline-place', !isOnline);
+  toggle('field-offline-map', !isOnline);
+  toggle('field-online-platform', isOnline);
+  toggle('field-online-url', isOnline);
+  toggle('field-online-note', isOnline);
 }
 
 function checkMapLink() {
@@ -226,7 +285,9 @@ function readForm(root) {
   return {
     title: v('title'), notice: v('notice'), timezone: v('timezone'),
     lesson_date: v('lesson_date'), start_time: v('start_time'), end_time: v('end_time'),
+    mode: v('mode') || 'offline',
     place_name: v('place_name'), google_maps_url: v('google_maps_url'),
+    online_platform: v('online_platform'), online_url: v('online_url'), online_note: v('online_note'),
     capacity: Number(v('capacity')), run_status: v('run_status'), status_note: v('status_note')
   };
 }
@@ -244,9 +305,15 @@ function validateForm(body) {
   } else if (body.end_time <= body.start_time) {
     f.start_time = 'timeOrder'; f.end_time = 'timeOrder';
   }
-  if (len(body.place_name) < 2 || len(body.place_name) > 120) f.place_name = 'placeRequired';
-  if (!body.google_maps_url) f.google_maps_url = 'googleRequired';
-  else if (!isGoogleMapsUrl(body.google_maps_url)) f.google_maps_url = 'googleInvalid';
+  if (body.mode === 'online') {
+    if (!body.online_platform) f.online_platform = 'platformRequired';
+    if (!body.online_url) f.online_url = 'onlineUrlRequired';
+    else if (!/^https:\/\/[^\s/]+\.[^\s]+$/i.test(body.online_url)) f.online_url = 'onlineUrlInvalid';
+  } else {
+    if (len(body.place_name) < 2 || len(body.place_name) > 120) f.place_name = 'placeRequired';
+    if (!body.google_maps_url) f.google_maps_url = 'googleRequired';
+    else if (!isGoogleMapsUrl(body.google_maps_url)) f.google_maps_url = 'googleInvalid';
+  }
   if (!Number.isInteger(body.capacity) || body.capacity < 1 || body.capacity > 50) f.capacity = 'capacityInvalid';
   return f;
 }

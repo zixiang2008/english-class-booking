@@ -141,6 +141,10 @@ async function initDatabase() {
       end_utc TEXT NOT NULL,
       place_name TEXT NOT NULL,
       google_maps_url TEXT NOT NULL,
+      mode TEXT NOT NULL DEFAULT 'offline',
+      online_platform TEXT NOT NULL DEFAULT '',
+      online_url TEXT NOT NULL DEFAULT '',
+      online_note TEXT NOT NULL DEFAULT '',
       capacity INTEGER NOT NULL DEFAULT 1,
       run_status TEXT NOT NULL DEFAULT 'confirmed'
         CHECK(run_status IN ('pending', 'confirmed', 'cancelled', 'completed')),
@@ -206,6 +210,19 @@ async function initDatabase() {
   ];
   for (const [name, type] of userColumns) {
     try { db.exec(`ALTER TABLE users ADD COLUMN ${name} ${type}`); } catch (_) { /* already migrated */ }
+  }
+
+  // ---- v3.3 online classes (idempotent) ----
+  // `mode` defaults to 'offline', so every class published before this release
+  // keeps behaving exactly as it did: place name + Google Maps address.
+  const courseColumns = [
+    ['mode', "TEXT NOT NULL DEFAULT 'offline'"],
+    ['online_platform', "TEXT NOT NULL DEFAULT ''"],
+    ['online_url', "TEXT NOT NULL DEFAULT ''"],
+    ['online_note', "TEXT NOT NULL DEFAULT ''"]
+  ];
+  for (const [name, type] of courseColumns) {
+    try { db.exec(`ALTER TABLE courses ADD COLUMN ${name} ${type}`); } catch (_) { /* already migrated */ }
   }
 
   // ---- Seed accounts (idempotent) ----

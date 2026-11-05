@@ -189,6 +189,32 @@ async function main() {
     !board.footer.hasPhone && !board.footer.text.includes('0637592741'), JSON.stringify(board.footer));
   const desktopShot = await screenshot('01-board-desktop');
 
+  // v3.2.2 — the weekly grid mirrors published classes instead of a fixed rota
+  const week = await evaluate(`(() => {
+    if (!document.querySelector('#week-table-wrap .wk-course')) {
+      try { jumpToLatestWeek(); } catch (_) { /* no classes at all */ }
+    }
+    const cells = [...document.querySelectorAll('#week-table-wrap .wk-td')];
+    const empty = cells.filter(td => td.classList.contains('wk-td-empty'));
+    const chips = [...document.querySelectorAll('#week-table-wrap .wk-course')];
+    return {
+      cells: cells.length,
+      empty: empty.length,
+      chips: chips.length,
+      days: document.querySelectorAll('#week-table-wrap thead th').length,
+      emptyLabel: empty.length ? empty[0].textContent.trim() : '',
+      emptyHasCourse: empty.filter(td => td.querySelector('.wk-course')).length,
+      onlineChips: chips.filter(c => c.querySelector('.wk-mode-ico')).length,
+      listCards: document.querySelectorAll('#week-list .wk-day').length
+    };
+  })()`);
+  check('weekly grid renders published classes as chips', week.chips >= 1, JSON.stringify(week));
+  check('weekly grid has 7 day columns', week.days >= 7, `th=${week.days}`);
+  check('empty weekly cells are labelled as not bookable',
+    week.empty === 0 || (week.emptyLabel.length > 0 && week.emptyHasCourse === 0),
+    `empty=${week.empty} label="${week.emptyLabel}" leaked=${week.emptyHasCourse}`);
+  check('mobile weekly list mirrors the grid', week.listCards === 7, `day cards=${week.listCards}`);
+
   // language switching
   await evaluate("I18N.setLang('ja')");
   await sleep(400);
@@ -227,13 +253,20 @@ async function main() {
   probingLogins = true;
   const loggedIn = await evaluate(`(async () => {
     const candidates = [['teacher','1111'], ['test_teacher1','1314'], ['hamish','1234'], ['kevin','1234']];
+    let fallback = '';
     for (const [username, password] of candidates) {
       const r = await fetch('/api/auth/login', { method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ username, password }) });
       const d = await r.json().catch(() => ({}));
-      if (d.success === true && d.user && d.user.role === 'teacher') return username;
+      if (d.success !== true || !d.user || d.user.role !== 'teacher') continue;
+      // Prefer a teacher who actually published something, otherwise the
+      // "sees own published classes" assertion below is meaningless.
+      const own = await fetch('/api/courses?teacher=me').then(x => x.json()).catch(() => ({ courses: [] }));
+      const n = (own.courses || []).length;
+      if (n > 0) return username;
+      if (!fallback) fallback = username;
     }
-    return '';
+    return fallback;
   })()`);
   probingLogins = false;
   check('teacher login succeeds with a demo account', !!loggedIn, loggedIn ? `as ${loggedIn}` : 'no candidate teacher account could sign in');
@@ -274,7 +307,54 @@ async function main() {
   check('notice board field with counter exists', form.notice && /\/\s*100/.test(form.counter), form.counter);
   check('Google address bar fields are all present', form.timezone && form.date && form.start && form.end && form.place && form.google);
   check('Google address bar fields are marked required', form.required >= 6, `required badges: ${form.required}`);
+
+  // v3.3 — offline / online class format switch inside the location section
+  const modeForm = await evaluate(`(() => {
+    const sw = document.getElementById('cf-mode-switch');
+    const isHidden = id => { const el = document.getElementById(id); return !el || el.classList.contains('hidden'); };
+    const read = () => ({
+      mode: (document.getElementById('cf-mode') || {}).value || '',
+      offlinePlace: !isHidden('field-offline-place'),
+      offlineMap: !isHidden('field-offline-map'),
+      onlinePlatform: !isHidden('field-online-platform'),
+      onlineUrl: !isHidden('field-online-url'),
+      onlineNote: !isHidden('field-online-note')
+    });
+    const buttons = sw ? [...sw.querySelectorAll('.mode-btn')] : [];
+    const before = read();
+    const clickMode = m => { const b = buttons.find(x => x.dataset.mode === m); if (b) b.click(); return read(); };
+    const afterOnline = clickMode('online');
+    const afterOffline = clickMode('offline');
+    return {
+      hasSwitch: !!sw,
+      buttons: buttons.length,
+      labels: buttons.map(b => b.textContent.trim()),
+      platforms: document.querySelectorAll('#cf-online_platform option').length,
+      before, afterOnline, afterOffline
+    };
+  })()`);
+  check('location section offers an offline/online format switch',
+    modeForm.hasSwitch && modeForm.buttons === 2, JSON.stringify(modeForm.labels));
+  check('a new class defaults to offline with the map fields visible',
+    modeForm.before.mode === 'offline' && modeForm.before.offlinePlace && modeForm.before.offlineMap &&
+    !modeForm.before.onlinePlatform && !modeForm.before.onlineUrl && !modeForm.before.onlineNote,
+    JSON.stringify(modeForm.before));
+  check('choosing online swaps the map fields for the meeting fields',
+    modeForm.afterOnline.mode === 'online' && !modeForm.afterOnline.offlinePlace && !modeForm.afterOnline.offlineMap &&
+    modeForm.afterOnline.onlinePlatform && modeForm.afterOnline.onlineUrl && modeForm.afterOnline.onlineNote,
+    JSON.stringify(modeForm.afterOnline));
+  check('switching back to offline restores the map fields',
+    modeForm.afterOffline.mode === 'offline' && modeForm.afterOffline.offlinePlace && modeForm.afterOffline.offlineMap &&
+    !modeForm.afterOffline.onlinePlatform, JSON.stringify(modeForm.afterOffline));
+  check('all 8 online platforms are selectable', modeForm.platforms === 8, `options=${modeForm.platforms}`);
   await evaluate("App.closeModal()");
+
+  // the platform list must come from the server, not a hard-coded copy
+  const cfg = await evaluate(`fetch('/api/courses/config').then(r => r.json())`);
+  check('config endpoint publishes the online platform catalogue',
+    Array.isArray(cfg.onlinePlatforms) && cfg.onlinePlatforms.length === 8 &&
+    cfg.onlinePlatforms.every(p => p.key && p.label),
+    JSON.stringify((cfg.onlinePlatforms || []).map(p => p.key)));
 
   // site settings (merged from v2.1)
   await evaluate("switchTab('settings')");

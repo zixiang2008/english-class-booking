@@ -106,6 +106,7 @@ async function main() {
   const zh = client('zh');
 
   let courseId = null;
+  let onlineCourseId = null;
 
   console.log('\n── Unit: time & validation ──────────────────────────────');
   await test('zonedTimeToUtc: Bangkok 10:00 → 03:00Z', () => {
@@ -141,6 +142,40 @@ async function main() {
     assert.ok(!noMap.ok && noMap.fields.google_maps_url === 'googleRequired');
     const badTime = validateCourse(validCourse({ start_time: '11:00', end_time: '10:00' }));
     assert.ok(!badTime.ok && badTime.fields.time);
+  });
+  await test('online class requires a platform and an https meeting link', () => {
+    const online = { mode: 'online', online_platform: 'zoom', online_url: 'https://zoom.us/j/123456789' };
+    const ok = validateCourse(validCourse({ ...online, place_name: '', google_maps_url: '' }));
+    assert.ok(ok.ok, JSON.stringify(ok.fields));
+    assert.strictEqual(ok.value.mode, 'online');
+    // No map pin for an online class — the legacy columns stay empty.
+    assert.strictEqual(ok.value.place_name, '');
+    assert.strictEqual(ok.value.google_maps_url, '');
+
+    const noPlatform = validateCourse(validCourse({ ...online, online_platform: '' }));
+    assert.ok(!noPlatform.ok && noPlatform.fields.online_platform === 'platformRequired');
+
+    const unknownPlatform = validateCourse(validCourse({ ...online, online_platform: 'skype' }));
+    assert.ok(!unknownPlatform.ok && unknownPlatform.fields.online_platform === 'platformRequired');
+
+    const noLink = validateCourse(validCourse({ ...online, online_url: '' }));
+    assert.ok(!noLink.ok && noLink.fields.online_url === 'onlineUrlRequired');
+
+    const badLink = validateCourse(validCourse({ ...online, online_url: 'http://zoom.us/j/1' }));
+    assert.ok(!badLink.ok && badLink.fields.online_url === 'onlineUrlInvalid');
+  });
+  await test('in-person class keeps the old rules and ignores online fields', () => {
+    const r = validateCourse(validCourse({
+      mode: 'offline', online_platform: 'zoom', online_url: 'https://zoom.us/j/1', online_note: '1234'
+    }));
+    assert.ok(r.ok, JSON.stringify(r.fields));
+    assert.strictEqual(r.value.mode, 'offline');
+    assert.strictEqual(r.value.online_platform, '');
+    assert.strictEqual(r.value.online_url, '');
+    assert.strictEqual(r.value.online_note, '');
+    assert.strictEqual(r.value.place_name, 'Test Studio, Bangkok');
+    // A payload without `mode` (older clients, historical rows) is in-person.
+    assert.strictEqual(validateCourse(validCourse()).value.mode, 'offline');
   });
   await test('valid course produces a real UTC instant', () => {
     const r = validateCourse(validCourse());
@@ -343,6 +378,56 @@ async function main() {
     // it so browsers don't read it as local time.
     assert.ok(/Z$/.test(c.created_at), `created_at must be ISO UTC: ${c.created_at}`);
     assert.ok(/Z$/.test(c.last_update_at), `last_update_at must be ISO UTC: ${c.last_update_at}`);
+  });
+  await test('API: online class stores platform + link and hides the map', async () => {
+    const r = await teacher.post('/api/courses', validCourse({
+      title: 'Online Integration Class',
+      lesson_date: '2026-12-02', start_time: '13:00', end_time: '14:00',
+      mode: 'online', online_platform: 'google_meet',
+      online_url: 'https://meet.google.com/abc-defg-hij',
+      online_note: 'Code 1234',
+      place_name: '', google_maps_url: ''
+    }));
+    assert.strictEqual(r.status, 200, JSON.stringify(r.data));
+    const detail = await anon.get(`/api/courses/${r.data.id}`);
+    const c = detail.data.course;
+    assert.strictEqual(c.mode, 'online');
+    assert.strictEqual(c.is_online, true);
+    assert.strictEqual(c.online_platform, 'google_meet');
+    assert.strictEqual(c.online_platform_label, 'Google Meet');
+    assert.strictEqual(c.location_label, 'Google Meet');
+    assert.strictEqual(c.place_name, '');
+    assert.strictEqual(c.google_maps_url, '');
+    assert.ok(c.google_calendar_url.includes('meet.google.com'), c.google_calendar_url);
+    onlineCourseId = r.data.id;
+  });
+  await test('API: online class without a platform or link is rejected', async () => {
+    const noPlatform = await teacher.post('/api/courses', validCourse({
+      lesson_date: '2026-12-03', mode: 'online', online_url: 'https://zoom.us/j/1', online_platform: ''
+    }));
+    assert.strictEqual(noPlatform.status, 400);
+    assert.strictEqual(noPlatform.data.fields.online_platform, 'platformRequired');
+
+    const noLink = await teacher.post('/api/courses', validCourse({
+      lesson_date: '2026-12-03', mode: 'online', online_platform: 'zoom', online_url: ''
+    }));
+    assert.strictEqual(noLink.status, 400);
+    assert.strictEqual(noLink.data.fields.online_url, 'onlineUrlRequired');
+  });
+  await test('API: classes published before v3.3 still read as in-person', async () => {
+    const r = await anon.get('/api/courses');
+    const legacy = r.data.courses.find(c => c.id === courseId);
+    assert.strictEqual(legacy.mode, 'offline');
+    assert.strictEqual(legacy.is_online, false);
+    assert.ok(legacy.place_name && legacy.google_maps_url);
+  });
+  await test('API: ICS feed carries the meeting link for online classes', async () => {
+    const r = await anon.get('/api/calendar/schedule.ics');
+    assert.strictEqual(r.status, 200);
+    assert.ok(/LOCATION:Google Meet/.test(r.text), 'online LOCATION missing');
+    assert.ok(r.text.includes('https://meet.google.com/abc-defg-hij'), 'join URL missing from ICS');
+    // ICS escapes commas inside a property value.
+    assert.ok(/LOCATION:Test Studio\\, Bangkok/.test(r.text), 'offline LOCATION changed');
   });
   await test('a second teacher cannot edit another teacher’s class', async () => {
     const r = await teacher2.put(`/api/courses/${courseId}`, validCourse({ title: 'Hijacked' }));

@@ -115,13 +115,17 @@
         <div id="course-empty" class="hidden"></div>
       </section>
 
-      <!-- ============ Weekly grid ============ -->
+      <!-- ============ Weekly timetable ============ -->
       <section id="view-weekly" class="hidden">
         <div class="panel">
           <div class="panel-head">
             <div>
-              <h3 data-i18n="v3_weeklyTitle">Weekly availability grid</h3>
-              <p class="panel-note" data-i18n="v3_weeklyDesc">The classic recurring timetable. Click an available slot to reserve it.</p>
+              <h3 data-i18n="v3_weeklyTitle">Weekly timetable</h3>
+              <p class="panel-note" data-i18n="v3_weeklyDesc">Every published class sits in its real slot. Hover a class to preview it, click to open and book.</p>
+            </div>
+            <div class="wk-meta">
+              <span class="wk-chip" id="wk-count"></span>
+              <span class="wk-chip wk-chip-tz" id="wk-tz"></span>
             </div>
           </div>
           <div class="week-nav">
@@ -130,19 +134,22 @@
             <button class="btn btn-ghost btn-sm" type="button" onclick="nextWeek()" aria-label="Next week">›</button>
             <button class="btn btn-soft btn-sm" type="button" onclick="goToday()" data-i18n="weekToday">📍 This Week</button>
           </div>
-          <div class="grid-scroll">
-            <table class="grid" id="weekly-table">
+          <div class="wk-banner hidden" id="wk-banner"></div>
+          <div class="grid-scroll" id="week-table-wrap">
+            <table class="grid wk-grid" id="weekly-table">
               <thead><tr id="weekly-header"></tr></thead>
               <tbody id="weekly-body"></tbody>
             </table>
           </div>
+          <div class="wk-list" id="week-list"></div>
           <div class="legend">
-            <span><i class="dot" style="background:#e6f6ea"></i><span data-i18n="legendAvailable">Available</span></span>
-            <span><i class="dot" style="background:#fff2d9"></i><span data-i18n="legendBooked">Booked</span></span>
-            <span><i class="dot" style="background:#e5e8f2"></i><span data-i18n="legendNotAvailable">Not Available</span></span>
-            <span id="legend-my" class="hidden"><i class="dot" style="background:#eeecff"></i><span data-i18n="legendMyBooking">My Booking</span></span>
+            <span><i class="dot" style="background:#d9f2e1"></i><span data-i18n="v3_wkBookable">Bookable</span></span>
+            <span><i class="dot" style="background:#ded8ff"></i><span data-i18n="v3_wkMine">My booking</span></span>
+            <span><i class="dot" style="background:#ffe6bd"></i><span data-i18n="v3_seatsFull">Full</span></span>
+            <span><i class="dot" style="background:#e5e8f2"></i><span data-i18n="v3_pastClass">Past class</span></span>
+            <span><i class="dot" style="background:#eef0f7"></i><span data-i18n="v3_wkNotBookable">Not bookable</span></span>
           </div>
-          <p class="panel-note" data-i18n="v3_weeklyNote">Weekly grid shows recurring availability; the class board above shows concrete dates, timezones and places.</p>
+          <p class="panel-note" data-i18n="v3_weeklyNote">A slot only becomes bookable once a teacher has published a class in it. Use ‹ › to walk back through the weeks — finished classes are kept as history.</p>
         </div>
       </section>
     </div>
@@ -155,7 +162,7 @@
         <a href="mailto:zixiang2008@gmail.com" id="footer-email-link">zixiang2008@gmail.com</a> ·
         <a href="https://line.me/ti/p/LJq8xrH-HU" id="footer-line-link" target="_blank" rel="noopener noreferrer">LINE</a>
       </span>
-      <span data-i18n="v3_footerMade">Built for teachers and students · v3.0</span>
+      <span data-i18n="v3_footerMade">Built for teachers and students · v3.3</span>
     </div>
   </footer>
 

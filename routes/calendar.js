@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const { getDb, TIME_SLOTS, DAYS } = require('../database');
 const { toICSUTC } = require('../lib/time');
+const { platformLabel } = require('../lib/platforms');
 
 const esc = s => String(s || '')
   .replace(/\\/g, '\\\\').replace(/\n/g, '\\n')
@@ -42,12 +43,20 @@ router.get('/schedule.ics', (req, res) => {
     for (const c of courses) {
       const status = c.run_status === 'cancelled' ? 'CANCELLED'
         : c.run_status === 'pending' ? 'TENTATIVE' : 'CONFIRMED';
+      const online = c.mode === 'online';
+      const platform = online ? platformLabel(c.online_platform) : '';
       const description = [
         `Teacher / 老师: ${c.teacher_name}`,
         c.notice ? `Notice / 通知: ${c.notice}` : '',
         `Timezone / 时区: ${c.timezone}`,
-        `Map / 谷歌地址: ${c.google_maps_url}`
+        online ? `Online / 线上: ${platform}${c.online_note ? ` (${c.online_note})` : ''}` : '',
+        online ? (c.online_url ? `Join / 会议链接: ${c.online_url}` : '') : '',
+        !online ? `Map / 谷歌地址: ${c.google_maps_url}` : ''
       ].filter(Boolean).map(esc).join('\\n');
+      const location = online
+        ? [platform, c.online_note].filter(Boolean).join(' · ')
+        : c.place_name;
+      const url = online ? c.online_url : c.google_maps_url;
       lines.push(
         'BEGIN:VEVENT',
         `UID:course-${c.id}@english-class-booking`,
@@ -56,8 +65,8 @@ router.get('/schedule.ics', (req, res) => {
         `DTEND:${toICSUTC(c.end_utc)}`,
         `SUMMARY:${esc(`[${c.run_status}] ${c.title}`)}`,
         `DESCRIPTION:${description}`,
-        `LOCATION:${esc(c.place_name)}`,
-        `URL:${c.google_maps_url}`,
+        `LOCATION:${esc(location)}`,
+        ...(url ? [`URL:${esc(url)}`] : []),
         `STATUS:${status}`,
         'TRANSP:OPAQUE',
         'END:VEVENT'
@@ -124,6 +133,7 @@ router.get('/schedule', (req, res) => {
     const courses = db.prepare(`
       SELECT c.id, c.title, c.timezone, c.lesson_date, c.start_time, c.end_time,
              c.start_utc, c.end_utc, c.place_name, c.google_maps_url, c.notice,
+             c.mode, c.online_platform, c.online_url, c.online_note,
              c.run_status, c.status_note, u.display_name AS teacher_name
       FROM courses c JOIN users u ON u.id = c.teacher_id ORDER BY c.start_utc
     `).all();
@@ -154,7 +164,7 @@ router.get('/info', (req, res) => {
     webViewUrl: `${baseUrl}/api/calendar/schedule`,
     publicViewUrl: `${baseUrl}/calendar.html`,
     siteUrl: baseUrl,
-    version: '3.0.0',
+    version: '3.3.0',
     privacy: {
       note: 'Only booking status is publicly visible. Student names are abbreviated to initials.',
       dataExposed: ['slot status', 'course time / timezone / place / Google Maps link / notice', 'first initial of student name'],

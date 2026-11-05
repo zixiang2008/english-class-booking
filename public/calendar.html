@@ -94,14 +94,14 @@
 
       <div class="panel">
         <div class="panel-head"><h3>🔒 Privacy notice</h3></div>
-        <div class="info-row"><span class="info-ico">✅</span><div><div class="info-label">PUBLIC</div><div class="info-value small">Slot status, class time / timezone / place, Google Maps link, notice board, teacher name</div></div></div>
+        <div class="info-row"><span class="info-ico">✅</span><div><div class="info-label">PUBLIC</div><div class="info-value small">Slot status, class time / timezone / place, Google Maps link or online meeting link, notice board, teacher name</div></div></div>
         <div class="info-row"><span class="info-ico">🛡️</span><div><div class="info-label">PROTECTED</div><div class="info-value small">Full student names, phone numbers, usernames, booking history (initials only in the legacy grid)</div></div></div>
       </div>
     </div>
   </main>
 
   <footer class="site-footer">
-    <div class="footer-inner"><span data-i18n="footerText">Interested In My Classes? Book Now!</span><span data-i18n="v3_footerMade">v3.0</span></div>
+    <div class="footer-inner"><span data-i18n="footerText">Interested In My Classes? Book Now!</span><span data-i18n="v3_footerMade">v3.3</span></div>
   </footer>
 
   <script src="/js/i18n.js"></script>
@@ -138,9 +138,19 @@
           .filter(c => new Date(c.start_utc).getTime() >= now - 86400000 && c.run_status !== 'cancelled')
           .slice(0, 12);
         if (!list.length) { holder.innerHTML = App.empty(I18N.t('v3_noCourses')); return; }
+        const platformName = key => {
+          if (!key) return '';
+          const k = `v3_platform_${key}`;
+          const hit = I18N.t(k);
+          return hit === k ? key : hit;
+        };
         holder.innerHTML = list.map(c => {
           const teacher = App.fmtInZone(c.start_utc, c.timezone);
           const local = App.fmtLocal(c.start_utc);
+          const isOnline = c.mode === 'online';
+          const where = isOnline
+            ? `🎥 ${App.esc(platformName(c.online_platform))}${c.online_note ? ' · ' + App.esc(c.online_note) : ''}`
+            : `📍 ${App.esc(c.place_name)}`;
           return `<div class="list-row">
             <div class="list-main">
               <div class="list-title">${App.esc(c.title)} <span class="badge badge-${App.esc(c.run_status)}">${App.statusIcon(c.run_status)} ${App.esc(App.statusText(c.run_status))}</span></div>
@@ -148,11 +158,13 @@
                 👩‍🏫 ${App.esc(c.teacher_name)}<br>
                 🕐 ${App.esc(teacher)} <span class="tz-pill">${App.esc(c.timezone)}</span><br>
                 🌍 ${App.esc(I18N.t('v3_timeLocal'))}: ${App.esc(local)}<br>
-                📍 ${App.esc(c.place_name)}
+                ${where}
                 ${c.notice ? `<br>📢 ${App.esc(c.notice)}` : ''}
               </div>
               <div class="link-row">
-                <a class="link-btn" href="${App.esc(c.google_maps_url)}" target="_blank" rel="noopener noreferrer">🗺️ ${App.esc(I18N.t('v3_mapOpen'))}</a>
+                ${isOnline
+                  ? `<a class="link-btn" href="${App.esc(c.online_url)}" target="_blank" rel="noopener noreferrer">🎥 ${App.esc(I18N.t('v3_joinOnline'))}</a>`
+                  : `<a class="link-btn" href="${App.esc(c.google_maps_url)}" target="_blank" rel="noopener noreferrer">🗺️ ${App.esc(I18N.t('v3_mapOpen'))}</a>`}
               </div>
             </div>
           </div>`;

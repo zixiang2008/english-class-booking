@@ -16,6 +16,7 @@ const {
   requireCanPublish, requireCanEdit, requireCanBook
 } = require('../lib/guards');
 const { validateCourse, RUN_STATUSES } = require('../lib/course-validation');
+const { ONLINE_PLATFORMS, platformLabel } = require('../lib/platforms');
 const { gmtOffsetLabel, googleCalendarUrl, COMMON_TIMEZONES, sqliteToIso } = require('../lib/time');
 
 const TIMESTAMP_FIELDS = ['created_at', 'updated_at', 'notice_updated_at', 'last_update_at'];
@@ -39,6 +40,12 @@ function decorate(row) {
   c.has_update = Number(c.revision) > 1;
   c.is_past = new Date(c.end_utc).getTime() <= Date.now();
   c.gmt_offset = gmtOffsetLabel(c.timezone, new Date(c.start_utc));
+  // Classes published before v3.3 have no `mode` column value; treat them as
+  // in-person so every existing card keeps rendering exactly as before.
+  c.mode = c.mode === 'online' ? 'online' : 'offline';
+  c.is_online = c.mode === 'online';
+  c.online_platform_label = c.is_online ? platformLabel(c.online_platform) : '';
+  c.location_label = c.is_online ? c.online_platform_label : c.place_name;
   c.google_calendar_url = googleCalendarUrl({ ...c, teacher_name: row.teacher_name });
   return c;
 }
@@ -61,8 +68,12 @@ function describeChanges(oldRow, v) {
       oldRow.end_time !== v.end_time || oldRow.timezone !== v.timezone) {
     changes.push({ type: 'time', text: 'Time / 时间·时区 changed' });
   }
-  if (oldRow.place_name !== v.place_name || oldRow.google_maps_url !== v.google_maps_url) {
+  if (oldRow.place_name !== v.place_name || oldRow.google_maps_url !== v.google_maps_url ||
+      (oldRow.mode || 'offline') !== v.mode) {
     changes.push({ type: 'place', text: 'Place / 地点·谷歌地址 changed' });
+  }
+  if ((oldRow.online_platform || '') !== v.online_platform || (oldRow.online_url || '') !== v.online_url) {
+    changes.push({ type: 'place', text: 'Online meeting / 线上会议信息 changed' });
   }
   if (oldRow.run_status !== v.run_status || oldRow.status_note !== v.status_note) {
     changes.push({ type: 'status', text: `Class status / 开课状态: ${v.run_status}` });
@@ -95,6 +106,7 @@ router.get('/config', (req, res) => {
   res.json({
     timezones: COMMON_TIMEZONES,
     runStatuses: RUN_STATUSES,
+    onlinePlatforms: ONLINE_PLATFORMS,
     maxNoticeLength: require('../lib/course-validation').MAX_NOTICE_LENGTH,
     serverTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone
   });
@@ -200,12 +212,15 @@ router.post('/', requireTeacher, requireCanPublish, (req, res) => {
       INSERT INTO courses
         (teacher_id, title, notice, notice_updated_at, timezone, lesson_date,
          start_time, end_time, start_utc, end_utc, place_name, google_maps_url,
+         mode, online_platform, online_url, online_note,
          capacity, run_status, status_note)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       req.session.userId, v.title, v.notice, v.notice ? new Date().toISOString() : null,
       v.timezone, v.lesson_date, v.start_time, v.end_time, v.start_utc, v.end_utc,
-      v.place_name, v.google_maps_url, v.capacity, v.run_status, v.status_note
+      v.place_name, v.google_maps_url,
+      v.mode, v.online_platform, v.online_url, v.online_note,
+      v.capacity, v.run_status, v.status_note
     );
     logUpdate(db, r.lastInsertRowid, req.session.userId, 'created', 'Course published / 发布课程', { bumpRevision: false });
     res.json({ success: true, id: r.lastInsertRowid, message: t(req, 'courseCreated') });
@@ -246,13 +261,17 @@ router.put('/:id', requireTeacher, requireCanEdit, (req, res) => {
     db.prepare(`
       UPDATE courses SET title = ?, notice = ?, notice_updated_at = ?, timezone = ?,
         lesson_date = ?, start_time = ?, end_time = ?, start_utc = ?, end_utc = ?,
-        place_name = ?, google_maps_url = ?, capacity = ?, run_status = ?, status_note = ?,
+        place_name = ?, google_maps_url = ?,
+        mode = ?, online_platform = ?, online_url = ?, online_note = ?,
+        capacity = ?, run_status = ?, status_note = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(
       v.title, v.notice, v.notice ? new Date().toISOString() : old.notice_updated_at,
       v.timezone, v.lesson_date, v.start_time, v.end_time, v.start_utc, v.end_utc,
-      v.place_name, v.google_maps_url, v.capacity, v.run_status, v.status_note, id
+      v.place_name, v.google_maps_url,
+      v.mode, v.online_platform, v.online_url, v.online_note,
+      v.capacity, v.run_status, v.status_note, id
     );
     for (const ch of describeChanges(old, v)) logUpdate(db, id, req.session.userId, ch.type, ch.text);
     res.json({ success: true, message: t(req, 'courseUpdated') });

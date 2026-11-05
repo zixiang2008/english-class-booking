@@ -313,11 +313,13 @@ function saCourseCard(c) {
         <span class="badge badge-${saEsc(c.runStatus)}">${App.statusIcon(c.runStatus)} ${saEsc(App.statusText(c.runStatus))}</span>
         ${c.isPast ? `<span class="badge">${saEsc(saT('v3_pastClass'))}</span>` : ''}</div>
       <div class="list-sub">👩‍🏫 ${saEsc(c.teacherName)} (@${saEsc(c.teacherUsername)}) · 🕐 ${saEsc(App.fmtInZone(c.startUtc, c.timezone))}</div>
-      <div class="list-sub">📍 ${saEsc(c.placeName)} · 👥 ${c.bookedCount} · ${saEsc(c.timezone)}</div>
+      <div class="list-sub">${c.mode === 'online' ? `🎥 ${saEsc(c.onlinePlatformLabel)}${c.onlineNote ? ' · ' + saEsc(c.onlineNote) : ''}` : `📍 ${saEsc(c.placeName)}`} · 👥 ${c.bookedCount} · ${saEsc(c.timezone)}</div>
       ${c.statusNote ? `<div class="list-sub">📝 ${saEsc(c.statusNote)}</div>` : ''}
     </div>
     <div class="list-actions">
-      <a class="btn btn-ghost btn-sm" href="${saEsc(c.googleMapsUrl)}" target="_blank" rel="noopener noreferrer">🗺️</a>
+      ${c.mode === 'online'
+        ? `<a class="btn btn-ghost btn-sm" href="${saEsc(c.onlineUrl)}" target="_blank" rel="noopener noreferrer">🎥</a>`
+        : `<a class="btn btn-ghost btn-sm" href="${saEsc(c.googleMapsUrl)}" target="_blank" rel="noopener noreferrer">🗺️</a>`}
       ${takedown
         ? `<button class="btn btn-soft btn-sm" type="button" data-sa-course="restore" data-id="${c.id}">${saEsc(saT('v3_saRestore'))}</button>`
         : `<button class="btn btn-outline-danger btn-sm" type="button" data-sa-course="takedown" data-id="${c.id}">${saEsc(saT('v3_saTakedown'))}</button>`}

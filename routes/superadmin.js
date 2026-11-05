@@ -16,6 +16,7 @@ const { getDb } = require('../database');
 const { t } = require('../i18n-server');
 const { requireAdmin, actor, isMuted } = require('../lib/guards');
 const { sqliteToIso } = require('../lib/time');
+const { platformLabel } = require('../lib/platforms');
 
 const PERMANENT_MUTE = '9999-12-31T23:59:59.000Z';
 
@@ -337,6 +338,11 @@ router.get('/courses', (req, res) => {
         endUtc: c.end_utc,
         placeName: c.place_name,
         googleMapsUrl: c.google_maps_url,
+        mode: c.mode === 'online' ? 'online' : 'offline',
+        onlinePlatform: c.online_platform || '',
+        onlinePlatformLabel: c.mode === 'online' ? platformLabel(c.online_platform) : '',
+        onlineUrl: c.online_url || '',
+        onlineNote: c.online_note || '',
         runStatus: c.run_status,
         statusNote: c.status_note,
         notice: c.notice,

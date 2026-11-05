@@ -59,6 +59,8 @@ zone*, and *where do we meet*.
 | Class moderation | — | v3.1 takedown and restore, with the reason shown to students |
 | Audit trail | — | v3.1 `admin_actions` log: who did what, to whom, why, when |
 | Class board | One flat list with finished classes mixed in | v3.2 three sections: next 7 days (highlighted) / later / finished (collapsed) |
+| Weekly timetable | A fixed rota that always looked bookable | v3.2.2 renders the classes that were actually published, stacked in proportion inside the same cell; empty cells say *not bookable* |
+| Meeting format | Offline only | v3.3 offline **or** online: pick a platform (Tencent Meeting, Zoom, Teams, Google Meet, VooV, DingTalk, WeChat, other) and paste the meeting link |
 
 ---
 
@@ -67,7 +69,10 @@ zone*, and *where do we meet*.
 ### 2.1 Teacher studio (`/admin.html`)
 
 - **Overview:** my classes, confirmed, tentative, bookings, students, teachers on site
-- **Publish:** title, notice board (≤100 chars), time zone, date, start/end time, place, Google Maps URL, capacity, run status
+- **Publish:** title, notice board (≤100 chars), time zone, date, start/end time, **class format**, capacity, run status
+  - **Offline** (default): place + Google Maps URL, both required
+  - **Online:** platform (8 options) + meeting link (required, any `https://` meeting URL) + optional meeting ID / passcode note; the map fields are hidden and not required
+
 - **Edit:** any field; saving bumps `revision` and writes a change-log entry
 - **Status:** tentative / confirmed / cancelled / completed, with an optional note
 - **Live booking feed:** student name, username, phone, class, class time, booking time
@@ -85,10 +90,16 @@ zone*, and *where do we meet*.
   - teacher, run status, whether the class was updated
   - the notice board (≤100 chars)
   - the Google address bar: IANA time zone + GMT offset, teacher's local time, my local time, place, Maps link, add-to-Google-Calendar
+    - for an **online** class the address bar becomes a meeting bar: 🎥 platform name, meeting ID / passcode, **Join meeting** button, and the calendar link points at the meeting URL
   - seats left and how many are booked
 - **One-click book / cancel** — duplicates, full classes and cancelled classes are rejected
 - **Class detail:** full information, change timeline, and (for the owning teacher) the list of booked students
-- **Weekly grid view:** the legacy recurring timetable
+- **Weekly timetable (v3.2.2):** rows are the start times that were actually published, columns are Monday → Sunday
+  - every published class appears as a chip inside its own cell; several teachers in the same slot share the cell, split **in proportion to class length**
+  - hovering a chip opens a preview with **Book / Cancel / Join / Details**; clicking it opens the full detail dialog
+  - a cell with no class is rendered as **not bookable** — the grid never offers a slot nobody published
+  - `‹ ›` walks through weeks, "jump to the latest week with classes" lands on the demo history, and a past week is banner-marked as finished
+  - below 760 px the grid becomes seven day cards with the same data
 - **Login page:** platform disclaimer (see §12)
 
 ### 2.3 Super admin console (`/superadmin.html`, visible only when `is_admin`)
@@ -290,6 +301,7 @@ users            id, username, password_hash, display_name, phone, role, google_
 schedule         id, day_of_week, time_slot, status, booked_by, booked_name   -- v2 grid
 courses          id, teacher_id, title, notice, notice_updated_at,
                  timezone, lesson_date, start_time, end_time, start_utc, end_utc,
+                 mode, online_platform, online_url, online_note,          -- v3.3
                  place_name, google_maps_url, capacity, run_status, status_note,
                  revision, created_at, updated_at
 course_bookings  id, course_id, student_id, status, created_at, cancelled_at
@@ -303,6 +315,12 @@ Design notes:
 - `start_time` / `end_time` are the teacher's wall-clock time; `timezone` is an IANA zone
 - `start_utc` / `end_utc` are the true UTC instants computed on the server — all
   sorting, the ICS feed and calendar links use them
+- `mode` is `offline` (default) or `online`; `online_platform` is one of
+  `tencent_meeting / zoom / teams / google_meet / voov / dingtalk / wechat / other`,
+  `online_url` is the meeting link, `online_note` an optional ID / passcode (≤120)
+- old rows migrate automatically: `ALTER TABLE courses ADD COLUMN mode TEXT NOT NULL DEFAULT 'offline'`
+  inside a `try/catch`, so every pre-v3.3 class stays offline with its
+  `place_name` / `google_maps_url` untouched
 - `run_status` decides whether a student can book
 - `revision > 1` is what makes the front end show an "updated" badge
 - `is_admin` is independent of `role`; `status='banned'` blocks sign-in,
@@ -335,7 +353,7 @@ localised from `X-Language` / `Accept-Language`.
 | Method | Path | Access | Notes |
 | --- | --- | --- | --- |
 | GET | `/api/courses` | public | `teacher=me|ID`, `status`, `q`, `mine=1` |
-| GET | `/api/courses/config` | public | Time zones, status enum, notice limit |
+| GET | `/api/courses/config` | public | Time zones, status enum, notice limit, `onlinePlatforms` (8 keys + labels) |
 | GET | `/api/courses/teachers` | public | Teachers and their class counts |
 | GET | `/api/courses/:id` | public | Detail + updates + bookings (owner only) |
 | GET | `/api/courses/:id/updates` | public | Change history |
@@ -387,18 +405,18 @@ localised from `X-Language` / `Accept-Language`.
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/healthz` | `{ ok: true, version: "3.2.1" }` |
+| GET | `/healthz` | `{ ok: true, version: "3.3.0" }` |
 
 ---
 
 ## 9. Testing
 
 ```bash
-npm test              # 68 API contract regressions (self-hosted, isolated DB)
+npm test              # 74 API contract regressions (self-hosted, isolated DB)
 npm run test:e2e      # 54 multi-teacher / multi-student journeys and edge cases
 npm run test:admin    # 35 admin authority, bans, mutes, promotion, moderation, audit, cascade
 npm run check:i18n    # every referenced key exists in all four languages
-npm run test:ui       # 37 real-browser smoke checks (needs a running server)
+npm run test:ui       # 47 real-browser smoke checks (needs a running server)
 npm run test:visual   # 25 multi-viewport visual checks (needs a running server)
 npm run check         # i18n + syntax + integration tests
 ```
@@ -418,8 +436,11 @@ BASE=http://127.0.0.1:3210 npm run test:visual         # terminal 2 (seeds extre
 `test:ui` covers card rendering, the notice board, the Google address bar,
 time-zone pills, multiple teachers, language switching, login, the teacher
 studio, the publish form's required fields and 100-character counter, the
-calendar page, mobile viewports (no horizontal overflow, tap sizes), uncaught JS
-exceptions and failed HTTP responses.
+**offline ↔ online format switch** (fields swap, all 8 platforms listed, the
+config endpoint publishes the same catalogue), the **weekly timetable** (chips
+render, 7 day columns, empty cells are labelled *not bookable*, the mobile day
+list mirrors the grid), the calendar page, mobile viewports (no horizontal
+overflow, tap sizes), uncaught JS exceptions and failed HTTP responses.
 
 `test:visual` seeds five teachers plus extreme data — an 80-character title, a
 100-character notice, a very long place name, clashing slots, a cancelled class
@@ -538,6 +559,10 @@ Verified edge cases:
 
 ## 13. Version history
 
+- **v3.3.0** — online classes: offline/online format, 8 meeting platforms, meeting link
+  replaces the map, meeting join on every surface (board, detail, timetable preview, calendar
+  page, ICS, Google Calendar); the weekly timetable was rebuilt around published classes
+  (proportional stacking, hover preview, "not bookable" empty cells, mobile day cards)
 - **v3.2.1** — login page: the demo-account hint became the platform disclaimer
 - **v3.2.0** — class board split into next 7 days / later / finished
 - **v3.1.0** — super administrator: account governance, restrictions, moderation, audit log

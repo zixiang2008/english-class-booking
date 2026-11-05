@@ -12,6 +12,54 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.3.0] — 2026-11-05
+
+### Added
+- **Online classes.** A class now has a *format*: **offline** (unchanged) or
+  **online**. Publishing online replaces the place + Google Maps fields with:
+  - platform — Tencent Meeting, Zoom, Microsoft Teams, Google Meet, VooV Meeting,
+    DingTalk, WeChat, Other (`lib/platforms.js` is the single source of truth)
+  - meeting link (required; any `https://` meeting URL is accepted so tenant
+    domains such as `zoom.us/j/…` or `meeting.tencent.com/…` are never rejected)
+  - an optional meeting ID / passcode note (≤120 characters)
+- The meeting surfaces everywhere a class is shown: board card (`🎥` badge, platform
+  name, **Join meeting**), class detail, weekly-timetable hover preview, calendar page,
+  ICS feed (`LOCATION` = platform + note, `URL` = meeting link) and the Google
+  Calendar link.
+- Super admin class list and moderation show the format and open the meeting link
+  instead of the map.
+
+### Changed
+- **Weekly timetable rebuilt (v3.2.2).** It no longer renders the legacy fixed rota.
+  Rows are the start times that teachers actually published, columns are Monday →
+  Sunday, and every published class becomes a chip inside its own cell. Several
+  teachers in the same slot share the cell, split **in proportion to class length**.
+  Hovering a chip opens a preview with Book / Cancel / Join / Details; clicking it
+  opens the full detail dialog. `‹ ›` walks through weeks, "jump to the latest week
+  with classes" lands on the demo history, and finished weeks are banner-marked.
+  Below 760 px the grid becomes seven day cards.
+- **Bookability is now truthful.** A cell with no published class renders as
+  **not bookable**. Previously the grid offered every legacy slot, so students could
+  try to book a slot nobody had published.
+
+### Fixed
+- History is visible in the timetable: past weeks can be browsed, so new users can
+  see how the system looks with real data.
+
+### Migration
+- `courses` gains `mode TEXT NOT NULL DEFAULT 'offline'`, `online_platform`,
+  `online_url`, `online_note` via idempotent `ALTER TABLE … ADD COLUMN` wrapped in
+  `try/catch`. Verified on a copy of the production database: 44 existing classes
+  all read back as `offline` with `place_name` / `google_maps_url` intact, and all
+  30 bookings untouched.
+- 18 new i18n strings × 4 languages (289 keys, full coverage).
+
+### Tests
+- `npm test` 74 · `npm run test:e2e` 54 · `npm run test:admin` 35 ·
+  `npm run test:ui` 47 · `npm run test:visual` 25 — all green.
+
+---
+
 ## [3.2.1] — 2026-11-05
 
 ### Changed
@@ -100,6 +148,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+[3.3.0]: https://github.com/zixiang2008/CMenglishClass/compare/v3.2.1...v3.3.0
 [3.2.1]: https://github.com/zixiang2008/CMenglishClass/compare/v3.2.0...v3.2.1
 [3.2.0]: https://github.com/zixiang2008/CMenglishClass/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/zixiang2008/CMenglishClass/compare/v3.0.0...v3.1.0
