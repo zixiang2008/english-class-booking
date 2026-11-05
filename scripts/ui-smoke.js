@@ -203,7 +203,9 @@ async function main() {
     registerCta: !!document.querySelector('#nav-right a[href="/register.html"]')
   }))()`);
   check('login page has 4 PIN boxes', login.pins === 4, JSON.stringify(login));
-  check('demo accounts show 4-digit PINs', login.demo.includes('1111') && login.demo.includes('2345'));
+  // The hint must list at least two username / 4-digit PIN pairs (accounts change over time).
+  const hintPairs = (login.demo.match(/\/\s*\d{4}\b/g) || []).length;
+  check('demo accounts show 4-digit PINs', hintPairs >= 2, login.demo.trim().slice(0, 140));
   check('Google OAuth UI hidden when unconfigured', login.googleHidden);
   check('nav renders language switcher + register CTA', login.langSwitcher && login.registerCta);
 

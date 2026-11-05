@@ -77,16 +77,17 @@ router.get('/students', requireTeacher, (req, res) => {
             'SELECT id, username, display_name, phone, created_at FROM users WHERE role = ? ORDER BY created_at DESC'
         ).all('student');
 
-        // Count bookings per student
+        // Count bookings per student — v3 bookings live in course_bookings,
+        // the legacy `schedule` table is empty on a v3 database.
         const bookingCounts = db.prepare(`
-      SELECT booked_by, COUNT(*) as count FROM schedule 
-      WHERE status = 'booked' AND booked_by IS NOT NULL 
-      GROUP BY booked_by
+      SELECT student_id, COUNT(*) as count FROM course_bookings
+      WHERE status = 'booked'
+      GROUP BY student_id
     `).all();
 
         const countMap = {};
         for (const bc of bookingCounts) {
-            countMap[bc.booked_by] = bc.count;
+            countMap[bc.student_id] = bc.count;
         }
 
         const result = students.map(s => ({

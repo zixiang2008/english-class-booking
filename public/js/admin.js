@@ -84,17 +84,25 @@ async function loadBookings(silent = false) {
   const prevMax = lastMaxBookingId || maxId;
   lastMaxBookingId = maxId;
 
+  const L = {
+    student: e(I18N.t('v3_colStudent')),
+    course: e(I18N.t('v3_colCourse')),
+    time: e(I18N.t('v3_colTime')),
+    phone: e(I18N.t('v3_colPhone')),
+    bookedAt: e(I18N.t('v3_colBookedAt'))
+  };
   const rows = list.map(b => `
     <tr class="${b.booking_id > prevMax ? 'is-new' : ''}">
-      <td><strong>${e(b.student_name)}</strong>${b.booking_id > prevMax ? ` <span class="badge badge-new">${e(I18N.t('v3_newBadge'))}</span>` : ''}<div class="list-sub">@${e(b.student_username)}</div></td>
-      <td>${e(b.course_title)}</td>
-      <td>${e(App.fmtInZone(b.start_utc, b.timezone))}<div class="list-sub">${e(b.timezone)} · ${e(b.place_name)}</div></td>
-      <td>${e(b.student_phone || '—')}</td>
-      <td>${e(App.fmtLocal(b.booked_at))}</td>
+      <td data-label="${L.student}"><span class="cv"><strong>${e(b.student_name)}</strong>${b.booking_id > prevMax ? ` <span class="badge badge-new">${e(I18N.t('v3_newBadge'))}</span>` : ''}<span class="list-sub">@${e(b.student_username)}</span></span></td>
+      <td data-label="${L.course}"><span class="cv">${e(b.course_title)}</span></td>
+      <td data-label="${L.time}"><span class="cv">${e(App.fmtInZone(b.start_utc, b.timezone))}<span class="list-sub">${e(b.timezone)} · ${e(b.place_name)}</span></span></td>
+      <td data-label="${L.phone}"><span class="cv">${e(b.student_phone || '—')}</span></td>
+      <td data-label="${L.bookedAt}"><span class="cv">${e(App.fmtLocal(b.booked_at))}</span></td>
     </tr>`).join('');
+  // .stack turns the table into one card per booking on phones (see style.css)
   const table = list.length ? `
-    <div class="table-scroll"><table class="data">
-      <thead><tr><th>${e(I18N.t('v3_colStudent'))}</th><th>${e(I18N.t('v3_colCourse'))}</th><th>${e(I18N.t('v3_colTime'))}</th><th>${e(I18N.t('v3_colPhone'))}</th><th>${e(I18N.t('v3_colBookedAt'))}</th></tr></thead>
+    <div class="table-scroll"><table class="data stack">
+      <thead><tr><th>${L.student}</th><th>${L.course}</th><th>${L.time}</th><th>${L.phone}</th><th>${L.bookedAt}</th></tr></thead>
       <tbody>${rows}</tbody></table></div>` : App.empty(e(I18N.t('v3_bookingsEmpty')));
   document.getElementById('booking-list').innerHTML = table;
   document.getElementById('overview-recent').innerHTML = list.length
@@ -115,9 +123,13 @@ async function loadStudents() {
   const { res, data } = await App.get('/api/admin/students');
   const box = document.getElementById('student-list');
   if (!res.ok || !Array.isArray(data)) { box.innerHTML = App.empty(e(I18N.t('v3_loadFailed'))); return; }
-  box.innerHTML = data.length ? `<div class="table-scroll"><table class="data">
-    <thead><tr><th>${e(I18N.t('registerDisplayName'))}</th><th>${e(I18N.t('registerUsername'))}</th><th>${e(I18N.t('registerPhone'))}</th><th>${e(I18N.t('v3_ovBookings'))}</th></tr></thead>
-    <tbody>${data.map(s => `<tr><td><strong>${e(s.display_name)}</strong></td><td>${e(s.username)}</td><td>${e(s.phone || '—')}</td><td>${s.bookingCount}</td></tr>`).join('')}</tbody></table></div>`
+  const name = e(I18N.t('v3_colName'));
+  const user = e(I18N.t('v3_colUsername'));
+  const phone = e(I18N.t('v3_colPhone'));
+  const count = e(I18N.t('v3_colBookingCount'));
+  box.innerHTML = data.length ? `<div class="table-scroll"><table class="data stack">
+    <thead><tr><th>${name}</th><th>${user}</th><th>${phone}</th><th>${count}</th></tr></thead>
+    <tbody>${data.map(s => `<tr><td data-label="${name}"><span class="cv"><strong>${e(s.display_name)}</strong></span></td><td data-label="${user}"><span class="cv">${e(s.username)}</span></td><td data-label="${phone}"><span class="cv">${e(s.phone || '—')}</span></td><td data-label="${count}"><span class="cv">${s.bookingCount}</span></td></tr>`).join('')}</tbody></table></div>`
     : App.empty(e(I18N.t('v3_studentsEmpty')));
 }
 
