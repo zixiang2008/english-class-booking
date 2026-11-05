@@ -77,7 +77,7 @@ function mulberry32(seed) {
 
   // ---------------------------------------------------------------- accounts
   const upsert = (username, displayName, role, { pin = PIN, resetPassword = true } = {}) => {
-    const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+    const existing = db.prepare('SELECT id FROM users WHERE lower(username) = lower(?)').get(username);
     if (existing) {
       if (resetPassword) {
         db.prepare('UPDATE users SET password_hash = ?, display_name = ?, role = ? WHERE id = ?')

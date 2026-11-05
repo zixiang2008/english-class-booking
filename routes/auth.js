@@ -22,7 +22,10 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
 router.post('/register', (req, res) => {
     try {
         const db = getDb();
-        const { username, password, displayName, phone, teacherCode } = req.body;
+        const { password, displayName, phone, teacherCode } = req.body;
+        // Usernames are case-insensitive everywhere, so "Hamish" and "hamish"
+        // are the same account. We keep the spelling the user typed.
+        const username = String(req.body.username || '').trim();
 
         if (!username || !password || !displayName) {
             return res.status(400).json({ error: t(req, 'fillRequired') });
@@ -33,7 +36,7 @@ router.post('/register', (req, res) => {
             return res.status(400).json({ error: t(req, 'pinDigitsOnly') });
         }
 
-        const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+        const existing = db.prepare('SELECT id FROM users WHERE lower(username) = lower(?)').get(username);
         if (existing) {
             return res.status(400).json({ error: t(req, 'usernameExists') });
         }
@@ -66,13 +69,15 @@ router.post('/register', (req, res) => {
 router.post('/login', (req, res) => {
     try {
         const db = getDb();
-        const { username, password } = req.body;
+        const { password } = req.body;
+        const username = String(req.body.username || '').trim();
 
         if (!username || !password) {
             return res.status(400).json({ error: t(req, 'loginRequired') });
         }
 
-        const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+        // Case-insensitive lookup: "Hamish", "hamish" and "HAMISH" all work.
+        const user = db.prepare('SELECT * FROM users WHERE lower(username) = lower(?)').get(username);
         if (!user) {
             return res.status(401).json({ error: t(req, 'invalidCredentials') });
         }
@@ -167,7 +172,7 @@ router.get('/google/callback', async (req, res) => {
         const db = getDb();
 
         // Check if user exists with this Google ID or email
-        let user = db.prepare('SELECT * FROM users WHERE google_id = ? OR username = ?').get(googleId, email);
+        let user = db.prepare('SELECT * FROM users WHERE google_id = ? OR lower(username) = lower(?)').get(googleId, email);
 
         if (user) {
             if (user.status === 'banned') {

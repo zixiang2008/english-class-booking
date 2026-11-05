@@ -187,6 +187,20 @@ async function main() {
     assert.strictEqual((await teacher.get('/api/auth/me')).data.user.role, 'teacher');
     assert.strictEqual((await student.get('/api/auth/me')).data.user.role, 'student');
   });
+  await test('login is case-insensitive for usernames', async () => {
+    for (const variant of ['TEACHER', 'Teacher', 'TeAcHeR', '  teacher  ']) {
+      const c = client();
+      const r = await c.post('/api/auth/login', { username: variant, password: '1111' });
+      assert.strictEqual(r.status, 200, `${variant}: ${JSON.stringify(r.data)}`);
+      assert.strictEqual((await c.get('/api/auth/me')).data.loggedIn, true);
+    }
+  });
+  await test('registration rejects a username that only differs by case', async () => {
+    const r = await client().post('/api/auth/register', {
+      username: 'STUDENT', password: '1234', displayName: 'Clone'
+    });
+    assert.strictEqual(r.status, 400, JSON.stringify(r.data));
+  });
   await test('registration requires a 4-digit PIN', async () => {
     const r = await client().post('/api/auth/register', { username: 'badpin', password: 'test1234', displayName: 'Bad PIN' });
     assert.strictEqual(r.status, 400);
@@ -211,6 +225,16 @@ async function main() {
     });
     assert.strictEqual(r.status, 200);
     assert.strictEqual(r.data.user.role, 'teacher');
+  });
+  await test('a mixed-case account can log in with any casing', async () => {
+    const reg = await client().post('/api/auth/register', {
+      username: 'MixedCase', password: '2468', displayName: 'Mixed Case'
+    });
+    assert.strictEqual(reg.status, 200, JSON.stringify(reg.data));
+    for (const variant of ['MixedCase', 'mixedcase', 'MIXEDCASE']) {
+      const r = await client().post('/api/auth/login', { username: variant, password: '2468' });
+      assert.strictEqual(r.status, 200, `${variant}: ${JSON.stringify(r.data)}`);
+    }
   });
   await test('logout destroys the session', async () => {
     const c = client();

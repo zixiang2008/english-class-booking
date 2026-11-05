@@ -19,7 +19,7 @@ const { initDatabase } = require('../database');
 const args = process.argv.slice(2);
 const revoke = args.includes('--revoke');
 const list = args.includes('--list');
-const username = args.find(a => !a.startsWith('--'));
+const username = String(args.find(a => !a.startsWith('--')) || '').trim();
 
 (async () => {
   const db = await initDatabase();
@@ -36,7 +36,7 @@ const username = args.find(a => !a.startsWith('--'));
     return;
   }
 
-  const user = db.prepare('SELECT id, username, display_name, role, is_admin FROM users WHERE username = ?').get(username);
+  const user = db.prepare('SELECT id, username, display_name, role, is_admin FROM users WHERE lower(username) = lower(?)').get(username);
   if (!user) {
     console.error(`No such user: ${username}`);
     process.exit(1);

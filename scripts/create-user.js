@@ -18,7 +18,8 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const { initDatabase } = require('../database');
 
-const [username, pin, roleArg, ...nameParts] = process.argv.slice(2);
+const [rawUsername, pin, roleArg, ...nameParts] = process.argv.slice(2);
+const username = String(rawUsername || '').trim();
 const role = roleArg === 'student' ? 'student' : 'teacher';
 const displayName = nameParts.join(' ').trim() || username;
 
@@ -34,12 +35,12 @@ if (!/^\d{4}$/.test(pin || '')) usage('PIN must be exactly 4 digits');
 (async () => {
   const db = await initDatabase();
   const hash = bcrypt.hashSync(pin, 10);
-  const existing = db.prepare('SELECT id, role FROM users WHERE username = ?').get(username);
+  const existing = db.prepare('SELECT id, role, username FROM users WHERE lower(username) = lower(?)').get(username);
 
   if (existing) {
     db.prepare('UPDATE users SET password_hash = ?, role = ?, display_name = ? WHERE id = ?')
       .run(hash, role, displayName, existing.id);
-    console.log(`Updated  ${username}  (id ${existing.id}, role ${role}) — PIN reset to ${pin}`);
+    console.log(`Updated  ${existing.username}  (id ${existing.id}, role ${role}) — PIN reset to ${pin}`);
   } else {
     const r = db.prepare('INSERT INTO users (username, password_hash, display_name, phone, role) VALUES (?, ?, ?, ?, ?)')
       .run(username, hash, displayName, '', role);
