@@ -6,6 +6,8 @@
 - 原生 HTML + CSS + JavaScript，无前端构建步骤
 - 英文 / 中文 / 泰文 / 日文四语言，移动端优先
 
+> 四语言项目说明见 [PROJECT_GUIDE.md](PROJECT_GUIDE.md)。
+
 ---
 
 ## 1. v3 解决了什么

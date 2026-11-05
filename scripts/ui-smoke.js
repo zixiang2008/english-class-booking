@@ -207,14 +207,14 @@ async function main() {
 
   // ---------------------------------------------------------------- teacher studio
   await goto('/admin.html');
-  await waitFor("document.querySelectorAll('.admin-tab').length >= 5 && document.querySelector('#overview-stats') && document.querySelector('#overview-stats').children.length > 0");
+  await waitFor("document.querySelectorAll('.admin-tab').length >= 6 && document.querySelector('#overview-stats') && document.querySelector('#overview-stats').children.length > 0");
   const admin = await evaluate(`(() => ({
     tabs: document.querySelectorAll('.admin-tab').length,
     stats: document.querySelector('#overview-stats').children.length,
     myCourses: document.querySelectorAll('#my-course-list .list-row').length,
     redirected: location.pathname.includes('login')
   }))()`);
-  check('teacher studio shows 5 tabs', admin.tabs === 5, JSON.stringify(admin));
+  check('teacher studio shows 6 tabs (incl. site settings)', admin.tabs === 6, JSON.stringify(admin));
   check('overview stat cards are populated', admin.stats >= 4);
   check('teacher sees own published classes', admin.myCourses >= 1);
   check('teacher session is not redirected to login', !admin.redirected);
@@ -242,6 +242,20 @@ async function main() {
   check('Google address bar fields are all present', form.timezone && form.date && form.start && form.end && form.place && form.google);
   check('Google address bar fields are marked required', form.required >= 6, `required badges: ${form.required}`);
   await evaluate("App.closeModal()");
+
+  // site settings (merged from v2.1)
+  await evaluate("switchTab('settings')");
+  await sleep(450);
+  const siteSettings = await evaluate(`(() => ({
+    visible: !document.getElementById('panel-settings').classList.contains('hidden'),
+    title: (document.getElementById('setting-title') || {}).value || '',
+    phone: (document.getElementById('setting-phone') || {}).value || '',
+    email: (document.getElementById('setting-email') || {}).value || '',
+    line: (document.getElementById('setting-line') || {}).value || ''
+  }))()`);
+  check('site settings tab loads saved contact details',
+    siteSettings.visible && !!siteSettings.phone && !!siteSettings.email,
+    JSON.stringify(siteSettings));
 
   // ---------------------------------------------------------------- calendar page
   await goto('/calendar.html');

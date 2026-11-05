@@ -53,6 +53,7 @@ async function startServer() {
     app.use('/api/courses', require('./routes/courses'));
     app.use('/api/admin', require('./routes/admin'));
     app.use('/api/calendar', require('./routes/calendar'));
+    app.use('/api/settings', require('./routes/settings'));
 
     app.use('/api/*', (req, res) => res.status(404).json({ error: 'Not found' }));
 

@@ -334,10 +334,31 @@ async function cancelSlot(id) {
   el.addEventListener(id === 'f-search' ? 'input' : 'change', () => loadCourses(true));
 });
 
+/** Site settings (v2.1): title + footer contact, editable in the teacher studio. */
+async function loadSiteSettings() {
+  try {
+    const { res, data } = await App.get('/api/settings');
+    if (!res.ok || !data) return;
+    if (data.site_title) document.title = data.site_title;
+    const phone = document.getElementById('footer-phone-link');
+    if (phone && data.site_phone) {
+      phone.textContent = data.site_phone;
+      phone.href = 'tel:' + String(data.site_phone).replace(/\s+/g, '');
+    }
+    const email = document.getElementById('footer-email-link');
+    if (email && data.site_email) {
+      email.textContent = data.site_email;
+      email.href = 'mailto:' + data.site_email;
+    }
+    const line = document.getElementById('footer-line-link');
+    if (line && data.site_line_url) line.href = data.site_line_url;
+  } catch (_) { /* settings are optional */ }
+}
+
 App.boot({
   onReady: async () => {
     App.setActiveNav('board');
-    await Promise.all([loadTeachers(), loadCourses(), loadWeekly()]);
+    await Promise.all([loadTeachers(), loadCourses(), loadWeekly(), loadSiteSettings()]);
     clearInterval(refreshTimer);
     refreshTimer = setInterval(() => {
       if (document.visibilityState === 'visible' && !document.body.classList.contains('modal-open')) {

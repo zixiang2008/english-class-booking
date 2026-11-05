@@ -22,7 +22,8 @@ function switchTab(tab) {
     publish: () => loadMyCourses(),
     bookings: () => loadBookings(false),
     slots: () => loadSlots(),
-    students: () => loadStudents()
+    students: () => loadStudents(),
+    settings: () => loadSettings()
   };
   if (loaders[tab]) loaders[tab]();
 }
@@ -352,6 +353,35 @@ async function removeBooking(id) {
   const { res, data } = await App.post('/api/admin/remove-booking', { slotId: id });
   App.toast((data && (data.message || data.error)) || I18N.t('v3_loadFailed'), res.ok ? 'success' : 'error');
   if (res.ok) loadSlots();
+}
+
+// ---------------------------------------------------------------- site settings
+async function loadSettings() {
+  const { res, data } = await App.get('/api/settings');
+  if (!res.ok || !data) { App.toast(I18N.t('v3_loadFailed'), 'error'); return; }
+  const fill = (id, value) => { const el = document.getElementById(id); if (el) el.value = value || ''; };
+  fill('setting-title', data.site_title);
+  fill('setting-phone', data.site_phone);
+  fill('setting-email', data.site_email);
+  fill('setting-line', data.site_line_url);
+}
+
+async function handleSaveSettings(ev) {
+  ev.preventDefault();
+  const btn = document.getElementById('settings-save-btn');
+  const body = {
+    site_title: document.getElementById('setting-title').value.trim(),
+    site_phone: document.getElementById('setting-phone').value.trim(),
+    site_email: document.getElementById('setting-email').value.trim(),
+    site_line_url: document.getElementById('setting-line').value.trim()
+  };
+  btn.disabled = true;
+  const { res, data } = await App.put('/api/settings', body);
+  btn.disabled = false;
+  App.toast(
+    (data && (data.message || data.error)) || (res.ok ? I18N.t('v3_saved') : I18N.t('v3_loadFailed')),
+    res.ok ? 'success' : 'error'
+  );
 }
 
 // ---------------------------------------------------------------- boot

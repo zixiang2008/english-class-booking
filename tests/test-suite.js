@@ -220,6 +220,24 @@ async function main() {
     assert.strictEqual((await c.get('/api/auth/me')).data.loggedIn, false);
   });
 
+  console.log('\n── Site settings (merged from v2.1) ───────────────────────');
+  await test('public settings expose site title and contact details', async () => {
+    const r = await anon.get('/api/settings');
+    assert.strictEqual(r.status, 200);
+    assert.ok(r.data.site_title && r.data.site_phone && r.data.site_email, JSON.stringify(r.data));
+  });
+  await test('students cannot update site settings', async () => {
+    const r = await student.put('/api/settings', { site_title: 'Nope' });
+    assert.strictEqual(r.status, 403);
+  });
+  await test('teacher updates site settings and the change is public', async () => {
+    const r = await teacher.put('/api/settings', { site_title: 'Test Class', site_phone: '123456' });
+    assert.strictEqual(r.status, 200, JSON.stringify(r.data));
+    const after = await anon.get('/api/settings');
+    assert.strictEqual(after.data.site_title, 'Test Class');
+    assert.strictEqual(after.data.site_phone, '123456');
+  });
+
   console.log('\n── Course config, multi-teacher board & permissions ───────');
   await test('/api/courses/config exposes timezones + 100-char limit', async () => {
     const r = await anon.get('/api/courses/config');

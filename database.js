@@ -293,6 +293,25 @@ async function initDatabase() {
     })(demos);
   }
 
+  // ---- Site settings (v2.1 feature, kept in v3) ----
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS site_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT DEFAULT ''
+    );
+  `);
+  const defaultSettings = {
+    site_phone: '0637592741',
+    site_email: 'chen.guanglei.elvis@gmail.com',
+    site_title: "财神'S Class",
+    site_line_url: 'https://line.me/ti/p/LJq8xrH-HU'
+  };
+  for (const [key, value] of Object.entries(defaultSettings)) {
+    if (!db.prepare('SELECT key FROM site_settings WHERE key = ?').get(key)) {
+      db.prepare('INSERT INTO site_settings (key, value) VALUES (?, ?)').run(key, value);
+    }
+  }
+
   return db;
 }
 

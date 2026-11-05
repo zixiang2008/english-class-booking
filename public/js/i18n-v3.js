@@ -184,10 +184,26 @@
   // back to English, and add late keys for zh. Kept separate so the curated
   // blocks above stay easy to read.
   const more = {
-    en: { v3_upcoming: 'Upcoming classes' },
-    zh: { v3_pleaseWait: '请稍候…', v3_upcoming: '即将开始的课程' },
+    en: {
+      v3_upcoming: 'Upcoming classes',
+      v3_tabSettings: '⚙️ Site settings', v3_settingsTitle: 'Site settings',
+      v3_settingsDesc: 'Title and contact details shown on the public pages.',
+      v3_settingsTitleField: 'Site title', v3_settingsPhone: 'Phone',
+      v3_settingsEmail: 'Email', v3_settingsLine: 'LINE / social URL'
+    },
+    zh: {
+      v3_pleaseWait: '请稍候…', v3_upcoming: '即将开始的课程',
+      v3_tabSettings: '⚙️ 站点设置', v3_settingsTitle: '站点设置',
+      v3_settingsDesc: '公开展示的站点标题与联系方式。',
+      v3_settingsTitleField: '站点标题', v3_settingsPhone: '电话',
+      v3_settingsEmail: '邮箱', v3_settingsLine: 'LINE / 社交链接'
+    },
     th: {
       v3_upcoming: 'คลาสที่กำลังจะมาถึง',
+      v3_tabSettings: '⚙️ ตั้งค่าเว็บไซต์', v3_settingsTitle: 'ตั้งค่าเว็บไซต์',
+      v3_settingsDesc: 'ชื่อเว็บไซต์และช่องทางติดต่อที่แสดงต่อสาธารณะ',
+      v3_settingsTitleField: 'ชื่อเว็บไซต์', v3_settingsPhone: 'โทรศัพท์',
+      v3_settingsEmail: 'อีเมล', v3_settingsLine: 'LINE / ลิงก์โซเชียล',
       v3_filterAll: 'ทุกคลาส', v3_revision: 'แก้ไขครั้งที่ {n}', v3_pastClass: 'คลาสที่ผ่านมาแล้ว',
       v3_detailBookings: 'นักเรียนที่จอง', v3_detailClose: 'ปิด',
       v3_noCoursesHint: 'ลองเลือกครูอื่นหรือรีเซ็ตตัวกรอง',
@@ -223,6 +239,10 @@
     },
     ja: {
       v3_upcoming: '近日開催のクラス',
+      v3_tabSettings: '⚙️ サイト設定', v3_settingsTitle: 'サイト設定',
+      v3_settingsDesc: '公開ページに表示するサイト名と連絡先。',
+      v3_settingsTitleField: 'サイト名', v3_settingsPhone: '電話番号',
+      v3_settingsEmail: 'メール', v3_settingsLine: 'LINE / SNS リンク',
       v3_filterAll: 'すべてのクラス', v3_revision: '改訂 {n}', v3_pastClass: '終了したクラス',
       v3_detailBookings: '予約した生徒', v3_detailClose: '閉じる',
       v3_noCoursesHint: '別の講師を選ぶか、フィルターをリセットしてください。',

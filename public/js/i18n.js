@@ -164,7 +164,7 @@ const I18N = {
 
       // Footer
       footerText: 'Interested In My Classes? Book Now!',
-      footerContact: 'TEL 098 007 8731 | Yosowa.toeskol@gmail.com | Wechat ID Ysowa 098 007 8731',
+      footerContact: 'TEL 0637592741 | chen.guanglei.elvis@gmail.com | Line',
       footerAdmin: 'Teacher Admin Panel',
       footerAdminSub: 'English Class Booking System',
 
@@ -347,7 +347,7 @@ const I18N = {
       logoutSuccess: '已退出登录',
       logoutText: '退出',
       footerText: '对我的课程感兴趣？立即预约！',
-      footerContact: '电话 098 007 8731 | Yosowa.toeskol@gmail.com | 微信 Ysowa 098 007 8731',
+      footerContact: '电话 0637592741 | chen.guanglei.elvis@gmail.com | Line',
       footerAdmin: '教师管理后台',
       footerAdminSub: '英语约课系统',
       toastLoggedOut: '已退出登录',
@@ -520,7 +520,7 @@ const I18N = {
       logoutSuccess: 'ออกจากระบบแล้ว',
       logoutText: 'ออกจากระบบ',
       footerText: 'สนใจคลาสเรียนของฉัน? จองเลย!',
-      footerContact: 'โทร 098 007 8731 | Yosowa.toeskol@gmail.com | Wechat ID Ysowa 098 007 8731',
+      footerContact: 'โทร 0637592741 | chen.guanglei.elvis@gmail.com | Line',
       footerAdmin: 'แผงควบคุมครูผู้สอน',
       footerAdminSub: 'ระบบจองคลาสเรียนภาษาอังกฤษ',
       toastLoggedOut: 'ออกจากระบบสำเร็จ',
@@ -693,7 +693,7 @@ const I18N = {
       logoutSuccess: 'ログアウトしました',
       logoutText: 'ログアウト',
       footerText: 'レッスンに興味がありますか？今すぐ予約！',
-      footerContact: 'TEL 098 007 8731 | Yosowa.toeskol@gmail.com | Wechat ID Ysowa 098 007 8731',
+      footerContact: 'TEL 0637592741 | chen.guanglei.elvis@gmail.com | Line',
       footerAdmin: '講師管理パネル',
       footerAdminSub: '英語レッスン予約システム',
       toastLoggedOut: 'ログアウトしました',

@@ -44,6 +44,7 @@
         <button class="admin-tab" type="button" data-tab="bookings" onclick="switchTab('bookings')" data-i18n="v3_tabBookings">🔔 Bookings</button>
         <button class="admin-tab" type="button" data-tab="slots" onclick="switchTab('slots')" data-i18n="v3_tabSlots">🗓️ Weekly slots</button>
         <button class="admin-tab" type="button" data-tab="students" onclick="switchTab('students')" data-i18n="v3_tabStudents">👥 Students</button>
+        <button class="admin-tab" type="button" data-tab="settings" onclick="switchTab('settings')" data-i18n="v3_tabSettings">⚙️ Site settings</button>
       </div>
 
       <!-- Overview -->
@@ -110,6 +111,38 @@
       <section id="panel-students" class="admin-panel hidden">
         <div class="section-head"><div><h2 data-i18n="v3_studentsTitle">Registered students</h2></div></div>
         <div class="panel"><div id="student-list" class="loading"><div class="spinner"></div></div></div>
+      </section>
+
+      <!-- Site settings -->
+      <section id="panel-settings" class="admin-panel hidden">
+        <div class="section-head">
+          <div><h2 data-i18n="v3_settingsTitle">Site settings</h2><p data-i18n="v3_settingsDesc">Title and contact details shown on the public pages.</p></div>
+        </div>
+        <div class="panel">
+          <form id="settings-form" onsubmit="handleSaveSettings(event)">
+            <div class="form-grid">
+              <div class="field full">
+                <label for="setting-title" data-i18n="v3_settingsTitleField">Site title</label>
+                <input id="setting-title" maxlength="60">
+              </div>
+              <div class="field">
+                <label for="setting-phone" data-i18n="v3_settingsPhone">Phone</label>
+                <input id="setting-phone" maxlength="40">
+              </div>
+              <div class="field">
+                <label for="setting-email" data-i18n="v3_settingsEmail">Email</label>
+                <input type="email" id="setting-email" maxlength="120">
+              </div>
+              <div class="field full">
+                <label for="setting-line" data-i18n="v3_settingsLine">LINE / social URL</label>
+                <input type="url" id="setting-line" maxlength="200" placeholder="https://line.me/ti/p/…">
+              </div>
+            </div>
+            <div style="margin-top:16px">
+              <button type="submit" class="btn btn-primary" id="settings-save-btn" data-i18n="v3_save">Save</button>
+            </div>
+          </form>
+        </div>
       </section>
     </div>
   </main>
