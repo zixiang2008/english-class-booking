@@ -201,15 +201,22 @@ async function main() {
   await goto('/login.html');
   const login = await evaluate(`(() => ({
     pins: document.querySelectorAll('#pin-row .pin-input').length,
-    demo: (document.querySelector('.demo-hint')||{}).textContent || '',
+    legal: {
+      present: !!document.querySelector('#legal-notice'),
+      title: ((document.querySelector('.legal-title')||{}).textContent || '').trim(),
+      items: document.querySelectorAll('.legal-list li').length,
+      hasFoot: !!document.querySelector('.legal-foot'),
+      demoGone: !document.querySelector('.demo-hint')
+    },
     googleHidden: document.getElementById('google-auth-section').classList.contains('hidden'),
     langSwitcher: !!document.querySelector('#nav-lang .lang-switcher'),
     registerCta: !!document.querySelector('#nav-right a[href="/register.html"]')
   }))()`);
   check('login page has 4 PIN boxes', login.pins === 4, JSON.stringify(login));
-  // The hint must list at least two username / 4-digit PIN pairs (accounts change over time).
-  const hintPairs = (login.demo.match(/\/\s*\d{4}\b/g) || []).length;
-  check('demo accounts show 4-digit PINs', hintPairs >= 2, login.demo.trim().slice(0, 140));
+  // Demo credentials were removed on purpose; the space now carries the disclaimer.
+  check('login page shows the platform disclaimer instead of demo accounts',
+    login.legal.present && login.legal.items === 4 && login.legal.hasFoot && login.legal.demoGone && login.legal.title.length > 0,
+    JSON.stringify(login.legal));
   check('Google OAuth UI hidden when unconfigured', login.googleHidden);
   check('nav renders language switcher + register CTA', login.langSwitcher && login.registerCta);
 
@@ -291,10 +298,14 @@ async function main() {
     ics: document.getElementById('ics-url').value,
     json: document.getElementById('web-url').value,
     rows: document.querySelectorAll('#upcoming .list-row').length,
-    tz: document.querySelectorAll('#upcoming .tz-pill').length
+    tz: document.querySelectorAll('#upcoming .tz-pill').length,
+    emptyShown: !!document.querySelector('#upcoming .empty-state')
   }))()`);
   check('calendar page builds ICS + JSON URLs', cal.ics.endsWith('/api/calendar/schedule.ics') && cal.json.endsWith('/api/calendar/schedule'));
-  check('upcoming classes show real timezones', cal.rows >= 1 && cal.tz >= 1, JSON.stringify(cal));
+  // A history-only dataset legitimately has nothing upcoming — then the page
+  // must say so instead of rendering rows.
+  check('upcoming classes show real timezones',
+    (cal.rows >= 1 && cal.tz >= 1) || (cal.rows === 0 && cal.emptyShown), JSON.stringify(cal));
 
   // ---------------------------------------------------------------- mobile
   await setViewport(390, 844, true);
