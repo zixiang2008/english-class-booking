@@ -181,17 +181,22 @@ async function initDatabase() {
   try { db.exec('ALTER TABLE users ADD COLUMN google_id TEXT DEFAULT NULL'); } catch (_) { /* exists */ }
 
   // ---- Seed accounts (idempotent) ----
-  if (!db.prepare("SELECT id FROM users WHERE username = ?").get('teacher')) {
-    db.prepare('INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, ?)')
-      .run('teacher', bcrypt.hashSync('1111', 10), 'Teacher Yosowa', 'teacher');
-  }
-  if (!db.prepare("SELECT id FROM users WHERE username = ?").get('teacher2')) {
-    db.prepare('INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, ?)')
-      .run('teacher2', bcrypt.hashSync('2345', 10), 'Teacher Anna', 'teacher');
-  }
-  if (!db.prepare("SELECT id FROM users WHERE username = ?").get('student')) {
-    db.prepare('INSERT INTO users (username, password_hash, display_name, phone, role) VALUES (?, ?, ?, ?, ?)')
-      .run('student', bcrypt.hashSync('1234', 10), 'Demo Student', '', 'student');
+  // SEED_DEMO=0 keeps a production database clean: no demo teachers, no demo
+  // classes, no fake weekly bookings. Everything else works identically.
+  const seedDemo = process.env.SEED_DEMO !== '0' && process.env.SEED_DEMO !== 'false';
+  if (seedDemo) {
+    if (!db.prepare("SELECT id FROM users WHERE username = ?").get('teacher')) {
+      db.prepare('INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, ?)')
+        .run('teacher', bcrypt.hashSync('1111', 10), 'Teacher Yosowa', 'teacher');
+    }
+    if (!db.prepare("SELECT id FROM users WHERE username = ?").get('teacher2')) {
+      db.prepare('INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, ?)')
+        .run('teacher2', bcrypt.hashSync('2345', 10), 'Teacher Anna', 'teacher');
+    }
+    if (!db.prepare("SELECT id FROM users WHERE username = ?").get('student')) {
+      db.prepare('INSERT INTO users (username, password_hash, display_name, phone, role) VALUES (?, ?, ?, ?, ?)')
+        .run('student', bcrypt.hashSync('1234', 10), 'Demo Student', '', 'student');
+    }
   }
 
   // v3 migration: v2 shipped a 10-character teacher password, but every account
@@ -227,11 +232,16 @@ async function initDatabase() {
     ];
     db.transaction(entries => {
       for (const [day, idx, status, name] of entries) insert.run(day, TIME_SLOTS[idx], status, name);
-    })(defaults);
+    })(seedDemo ? defaults : (() => {
+      // Production: every slot starts free, no fake student names.
+      const rows = [];
+      for (let d = 0; d < 7; d++) for (let i = 0; i < TIME_SLOTS.length; i++) rows.push([d, i, 'available', '']);
+      return rows;
+    })());
   }
 
   // ---- Seed demo courses so the multi-teacher board is alive on first run ----
-  if (db.prepare('SELECT COUNT(*) as count FROM courses').get().count === 0) {
+  if (seedDemo && db.prepare('SELECT COUNT(*) as count FROM courses').get().count === 0) {
     const t1 = db.prepare("SELECT id FROM users WHERE username = 'teacher'").get().id;
     const t2 = db.prepare("SELECT id FROM users WHERE username = 'teacher2'").get().id;
     const demos = [

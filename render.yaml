@@ -13,6 +13,9 @@ services:
       # teacher self-registration.
       - key: TEACHER_INVITE_CODE
         value: TEACHER2026
+      # No demo teachers / demo classes in production.
+      - key: SEED_DEMO
+        value: "0"
       # Optional: public base URL used by /api/calendar/info and startup logs.
       - key: SITE_URL
         sync: false

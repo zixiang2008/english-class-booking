@@ -85,8 +85,13 @@ async function loadCourses(silent = false) {
     return;
   }
   coursesData = data.courses;
-  document.getElementById('stat-courses').textContent = coursesData.filter(c => c.run_status !== 'cancelled').length;
-  document.getElementById('stat-bookings').textContent = coursesData.reduce((s, c) => s + c.booked_count, 0);
+  // Hero stats describe the whole board, so they must not shrink when the
+  // visitor narrows the list with a filter — and they must always agree with
+  // the "N classes" counter above the grid.
+  if (!search && !teacher && !status && !mine) {
+    document.getElementById('stat-courses').textContent = coursesData.length;
+    document.getElementById('stat-bookings').textContent = coursesData.reduce((s, c) => s + c.booked_count, 0);
+  }
   renderCourses();
 }
 
@@ -187,7 +192,16 @@ function renderCourses() {
   const grid = document.getElementById('course-grid');
   document.getElementById('result-count').textContent = I18N.t('v3_resultCount', { n: coursesData.length });
   if (!coursesData.length) {
-    grid.innerHTML = App.empty(`${App.esc(I18N.t('v3_noCourses'))}<br><small>${App.esc(I18N.t('v3_noCoursesHint'))}</small>`);
+    // Distinguish "nothing published yet" from "your filters matched nothing".
+    const filtering = !!(
+      document.getElementById('f-search').value.trim() ||
+      document.getElementById('f-teacher').value ||
+      document.getElementById('f-status').value ||
+      document.getElementById('f-mine').checked
+    );
+    const title = filtering ? I18N.t('v3_noCourses') : I18N.t('v3_noCoursesYet');
+    const hint = filtering ? I18N.t('v3_noCoursesHint') : I18N.t('v3_noCoursesYetHint');
+    grid.innerHTML = App.empty(`${App.esc(title)}<br><small>${App.esc(hint)}</small>`);
     return;
   }
   grid.innerHTML = coursesData.map(courseCardHtml).join('');

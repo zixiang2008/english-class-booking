@@ -34,6 +34,7 @@ function decorate(row) {
   c.seats_left = Math.max(0, Number(c.capacity) - c.booked_count);
   c.is_my_booking = !!c.my_booking_id;
   c.has_update = Number(c.revision) > 1;
+  c.is_past = new Date(c.end_utc).getTime() <= Date.now();
   c.gmt_offset = gmtOffsetLabel(c.timezone, new Date(c.start_utc));
   c.google_calendar_url = googleCalendarUrl({ ...c, teacher_name: row.teacher_name });
   return c;
@@ -43,9 +44,10 @@ function getCourse(db, id, userId) {
   return decorate(db.prepare(`${COURSE_SELECT} WHERE c.id = ?`).get(userId || 0, id));
 }
 
-function logUpdate(db, courseId, teacherId, type, summary) {
+function logUpdate(db, courseId, teacherId, type, summary, { bumpRevision = true } = {}) {
   db.prepare('INSERT INTO course_updates (course_id, teacher_id, change_type, summary) VALUES (?, ?, ?, ?)')
     .run(courseId, teacherId, type, summary);
+  if (!bumpRevision) return; // the initial "published" entry must not flag the class as updated
   db.prepare('UPDATE courses SET revision = revision + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(courseId);
 }
 
@@ -75,7 +77,7 @@ router.get('/teachers', (req, res) => {
     const db = getDb();
     const teachers = db.prepare(
       `SELECT u.id, u.display_name, COUNT(c.id) AS course_count
-       FROM users u LEFT JOIN courses c ON c.teacher_id = u.id
+       FROM users u JOIN courses c ON c.teacher_id = u.id
        WHERE u.role = 'teacher' GROUP BY u.id ORDER BY u.display_name`
     ).all();
     res.json({ teachers });
@@ -101,6 +103,16 @@ router.get('/', (req, res) => {
     const userId = req.session.userId || 0;
     const rows = db.prepare(`${COURSE_SELECT} ORDER BY c.start_utc ASC`).all(userId);
     let courses = rows.map(decorate);
+
+    // Upcoming classes first (soonest at the top), finished ones pushed to the
+    // end (most recent first) so the board never opens on stale lessons.
+    const nowIso = new Date().toISOString();
+    courses.sort((a, b) => {
+      if (a.is_past !== b.is_past) return a.is_past ? 1 : -1;
+      return a.is_past
+        ? String(b.start_utc).localeCompare(String(a.start_utc))
+        : String(a.start_utc).localeCompare(String(b.start_utc));
+    });
 
     const teacherParam = String(req.query.teacher || '');
     const teacherId = teacherParam === 'me' ? (req.session.userId || -1) : Number(teacherParam || 0);
@@ -171,6 +183,16 @@ router.post('/', requireTeacher, (req, res) => {
       return res.status(400).json({ error: t(req, 'invalidCourse'), fields: result.fields, firstCode: result.firstCode });
     }
     const v = result.value;
+    const clash = db.prepare(
+      'SELECT id, title FROM courses WHERE teacher_id = ? AND start_utc < ? AND end_utc > ? LIMIT 1'
+    ).get(req.session.userId, v.end_utc, v.start_utc);
+    if (clash) {
+      return res.status(400).json({
+        error: t(req, 'duplicateSlot'),
+        fields: { start_time: 'duplicateSlot' },
+        duplicateId: clash.id
+      });
+    }
     const r = db.prepare(`
       INSERT INTO courses
         (teacher_id, title, notice, notice_updated_at, timezone, lesson_date,
@@ -182,7 +204,7 @@ router.post('/', requireTeacher, (req, res) => {
       v.timezone, v.lesson_date, v.start_time, v.end_time, v.start_utc, v.end_utc,
       v.place_name, v.google_maps_url, v.capacity, v.run_status, v.status_note
     );
-    logUpdate(db, r.lastInsertRowid, req.session.userId, 'created', 'Course published / 发布课程');
+    logUpdate(db, r.lastInsertRowid, req.session.userId, 'created', 'Course published / 发布课程', { bumpRevision: false });
     res.json({ success: true, id: r.lastInsertRowid, message: t(req, 'courseCreated') });
   } catch (err) {
     console.error('Create course error:', err);
@@ -199,11 +221,25 @@ router.put('/:id', requireTeacher, (req, res) => {
     if (old.teacher_id !== req.session.userId) {
       return res.status(403).json({ error: t(req, 'courseNoPermission') });
     }
-    const result = validateCourse(req.body);
+    const payload = { ...req.body };
+    // A partial update must not silently reset the class status.
+    if (payload.run_status === undefined) payload.run_status = old.run_status;
+    if (payload.status_note === undefined) payload.status_note = old.status_note;
+    const result = validateCourse(payload);
     if (!result.ok) {
       return res.status(400).json({ error: t(req, 'invalidCourse'), fields: result.fields, firstCode: result.firstCode });
     }
     const v = result.value;
+    const clash = db.prepare(
+      'SELECT id FROM courses WHERE teacher_id = ? AND start_utc < ? AND end_utc > ? AND id != ? LIMIT 1'
+    ).get(req.session.userId, v.end_utc, v.start_utc, id);
+    if (clash) {
+      return res.status(400).json({
+        error: t(req, 'duplicateSlot'),
+        fields: { start_time: 'duplicateSlot' },
+        duplicateId: clash.id
+      });
+    }
     db.prepare(`
       UPDATE courses SET title = ?, notice = ?, notice_updated_at = ?, timezone = ?,
         lesson_date = ?, start_time = ?, end_time = ?, start_utc = ?, end_utc = ?,
@@ -274,6 +310,9 @@ router.post('/:id/book', requireStudent, (req, res) => {
     if (!course) return res.status(404).json({ error: t(req, 'courseNotFound') });
     if (['cancelled', 'completed'].includes(course.run_status)) {
       return res.status(400).json({ error: t(req, 'courseClosed') });
+    }
+    if (new Date(course.end_utc).getTime() <= Date.now()) {
+      return res.status(400).json({ error: t(req, 'courseEnded') });
     }
     const existing = db.prepare(
       "SELECT id FROM course_bookings WHERE course_id = ? AND student_id = ? AND status = 'booked'"

@@ -479,7 +479,7 @@ details.cal-detail ol { margin: 10px 0 0 18px; font-size: 12.5px; color: var(--t
 /* ---------------------------------------------------------- responsive */
 @media (max-width: 1024px) {
   .topbar-inner { gap: 12px; }
-  .nav-link { padding: 7px 9px; font-size: 12.5px; }
+  .nav-link { padding: 7px 9px; font-size: 12.5px; min-height: 40px; display: inline-flex; align-items: center; }
   .course-grid { grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
 }
 @media (max-width: 820px) {
@@ -491,10 +491,13 @@ details.cal-detail ol { margin: 10px 0 0 18px; font-size: 12.5px; color: var(--t
     padding-bottom: 2px; scrollbar-width: none;
   }
   .nav-links::-webkit-scrollbar { display: none; }
+  /* Comfortable touch target on phones/tablets (was 33px tall). */
+  .nav-link { display: inline-flex; align-items: center; min-height: 40px; }
   .wrap { padding: 0 14px; }
   .hero-inner { padding: 30px 14px 28px; }
   .main { padding: 22px 0 40px; }
-  .course-grid { grid-template-columns: 1fr; gap: 14px; }
+  /* Tablets keep two columns; only phones drop to a single column. */
+  .course-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
   .filters { padding: 12px; gap: 8px; }
   .filters select { flex: 1 1 140px; min-width: 120px; }
   .form-grid { grid-template-columns: 1fr; }
@@ -510,7 +513,8 @@ details.cal-detail ol { margin: 10px 0 0 18px; font-size: 12.5px; color: var(--t
   .lang-switcher-btn { padding: 7px 10px; }
   #nav-right { display: flex; gap: 6px; }
   #nav-right .btn { padding: 7px 10px; font-size: 12px; }
-  .nav-link { padding: 7px 8px; font-size: 12px; white-space: nowrap; }
+  .nav-link { padding: 7px 8px; font-size: 12px; white-space: nowrap; min-height: 40px; }
+  .course-grid { grid-template-columns: 1fr; }
   .hero h1 { font-size: 25px; }
   .hero-desc { font-size: 13.5px; }
   .hero-stats { gap: 7px; }
@@ -531,6 +535,10 @@ details.cal-detail ol { margin: 10px 0 0 18px; font-size: 12.5px; color: var(--t
   .pin-input { height: 48px; font-size: 19px; }
   .week-range { min-width: 130px; font-size: 12.5px; }
   .toast { right: 12px; left: 12px; max-width: none; }
+  /* Six tabs never fit on a phone: wrap them into a 2-column grid so no tab
+     is hidden behind a horizontal scroll. */
+  .admin-tabs { flex-wrap: wrap; overflow-x: visible; }
+  .admin-tab { flex: 1 1 calc(50% - 6px); padding: 9px 10px; font-size: 12.5px; text-align: center; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }

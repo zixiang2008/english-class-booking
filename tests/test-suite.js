@@ -248,10 +248,11 @@ async function main() {
     assert.strictEqual(r.data.maxNoticeLength, 100);
     assert.deepStrictEqual(r.data.runStatuses, ['pending', 'confirmed', 'cancelled', 'completed']);
   });
-  await test('at least three teachers are listed (multi-teacher board)', async () => {
+  await test('at least two teachers with classes are listed (multi-teacher board)', async () => {
     const r = await anon.get('/api/courses/teachers');
     assert.strictEqual(r.status, 200);
-    assert.ok(r.data.teachers.length >= 3);
+    assert.ok(r.data.teachers.length >= 2);
+    assert.ok(r.data.teachers.every(t => t.course_count >= 1), 'only teachers with classes are listed');
   });
   await test('demo seed has courses from two different teachers', async () => {
     const r = await anon.get('/api/courses');
@@ -296,6 +297,8 @@ async function main() {
     assert.strictEqual(tooLong.data.fields.notice, 'noticeTooLong');
     const ok = await teacher.post('/api/courses', validCourse({ notice: '字'.repeat(100) }));
     assert.strictEqual(ok.status, 200, JSON.stringify(ok.data));
+    // free the slot again so later tests can publish at the same time
+    await teacher.del(`/api/courses/${ok.data.id}`);
   });
   await test('teacher publishes a complete class', async () => {
     const r = await teacher.post('/api/courses', validCourse());
@@ -396,7 +399,9 @@ async function main() {
     assert.strictEqual(c.booked_count, 0);
   });
   await test('capacity limit is enforced', async () => {
-    const small = await teacher.post('/api/courses', validCourse({ title: 'Tiny Class', capacity: 1 }));
+    const small = await teacher.post('/api/courses', validCourse({
+      title: 'Tiny Class', capacity: 1, start_time: '15:00', end_time: '16:00'
+    }));
     assert.strictEqual(small.status, 200);
     const id = small.data.id;
     assert.strictEqual((await student.post(`/api/courses/${id}/book`)).status, 200);

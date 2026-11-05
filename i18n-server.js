@@ -45,7 +45,9 @@ const translations = {
     courseDeleted: 'Course deleted',
     courseBookSuccess: 'Booked! The teacher can see your booking now.',
     courseCancelSuccess: 'Booking cancelled',
-    bookingsFailed: 'Failed to load bookings'
+    bookingsFailed: 'Failed to load bookings',
+    courseEnded: 'This class has already ended',
+    duplicateSlot: 'You already have a class at this exact time'
   },
   zh: {
     fillRequired: '请填写所有必填字段',
@@ -89,7 +91,9 @@ const translations = {
     courseDeleted: '课程已删除',
     courseBookSuccess: '预约成功！老师已能看到你的预约',
     courseCancelSuccess: '已取消预约',
-    bookingsFailed: '获取预约列表失败'
+    bookingsFailed: '获取预约列表失败',
+    courseEnded: '该课程已经结束',
+    duplicateSlot: '你在同一时间段已有一节课'
   },
   th: {
     fillRequired: 'กรุณากรอกข้อมูลที่จำเป็น',
@@ -133,7 +137,9 @@ const translations = {
     courseDeleted: 'ลบคลาสแล้ว',
     courseBookSuccess: 'จองสำเร็จ!',
     courseCancelSuccess: 'ยกเลิกการจองแล้ว',
-    bookingsFailed: 'โหลดรายการจองไม่สำเร็จ'
+    bookingsFailed: 'โหลดรายการจองไม่สำเร็จ',
+    courseEnded: 'คลาสนี้จบไปแล้ว',
+    duplicateSlot: 'คุณมีคลาสในเวลาเดียวกันนี้อยู่แล้ว'
   },
   ja: {
     fillRequired: '必須フィールドを入力してください',
@@ -177,7 +183,9 @@ const translations = {
     courseDeleted: 'クラスを削除しました',
     courseBookSuccess: '予約しました！',
     courseCancelSuccess: '予約をキャンセルしました',
-    bookingsFailed: '予約一覧の読み込みに失敗しました'
+    bookingsFailed: '予約一覧の読み込みに失敗しました',
+    courseEnded: 'このクラスはすでに終了しています',
+    duplicateSlot: '同じ時間帯にすでにクラスがあります'
   }
 };
 

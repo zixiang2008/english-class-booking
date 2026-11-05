@@ -78,27 +78,47 @@ npm start
 
 ---
 
-## 4. 演示账号
+## 4. 账号
 
 所有账号密码均为 **4 位数字 PIN**。
 
+**正式账号**
+
 | 角色 | 用户名 | PIN | 说明 |
 | --- | --- | --- | --- |
-| 管理员 / 老师 | `elvis` | `1314` | 站点所有者账号，可发布课程、管理预约与站点设置 |
-| 老师 | `teacher` | `1111` | 示例课程 2 门 |
-| 老师 | `teacher2` | `2345` | 示例课程 2 门 |
-| 学生 | `student` | `1234` | 用于预约测试 |
+| 管理员 / 老师 | `elvis` | `1314` | 站点所有者，可发布课程、管理预约与站点设置 |
+| 老师 | `hamish` | `1234` | 真实老师账号，尚未发布课程 |
+| 老师 | `kevin` | `1234` | 真实老师账号，尚未发布课程 |
 
-> 从 v2 升级的旧数据库会自动把 `teacher` 的旧密码迁移为 `1111`。
-> `elvis` 不会在全新数据库中自动创建（避免默认管理员弱口令），可用注册页 + 邀请码，或下面的命令创建 / 重置：
+**演示账号（历史数据用，可真实登录）**
+
+| 角色 | 用户名 | PIN | 说明 |
+| --- | --- | --- | --- |
+| 老师 | `test_teacher1` | `1314` | 发布 `English Corner`，过去两周 14 节 |
+| 老师 | `test_teacher2` | `1314` | 发布 `English Corner`，过去两周 14 节 |
+| 老师 | `test_teacher3` | `1314` | 发布 `英文学习课程`，过去两周 14 节 |
+| 学生 | `test_student1` … `test_student5` | `1314` | 每人每周 3 次课，共 6 条历史预约 |
+
+演示数据覆盖**过去 14 天**（不含今天），每天固定三个时段：`10:00-12:00`、`15:00-16:00`、`16:00-17:00`（Asia/Bangkok）。共 42 节课（38 节已完成、4 节已取消）、30 条预约，全部只出现在历史里，不会占用未来的时间段。
+
+> `elvis` / `hamish` / `kevin` 不会在全新数据库中自动创建，可用注册页 + 邀请码，或下面的命令创建 / 重置：
 
 ```bash
 # 先停止正在运行的服务，执行完再启动
 node scripts/create-user.js elvis 1314 teacher Elvis
-node scripts/create-user.js student 1234 student "Demo Student"
+node scripts/create-user.js hamish 1234 teacher Hamish
+node scripts/create-user.js kevin 1234 teacher Kevin
 ```
 
 > `scripts/create-user.js` 也可以用来重置任意账号的 PIN，或把学生升级为老师。
+
+重新生成演示历史（会先删除这 3 位测试老师名下的旧课程）：
+
+```bash
+# 先停服务，再执行，最后重启
+SEED_DEMO=0 node scripts/seed-demo-history.js        # 默认两周
+SEED_DEMO=0 node scripts/seed-demo-history.js 4      # 四周
+```
 
 **站点设置**：老师工作台 →「站点设置」可修改站点标题、电话、邮箱、LINE 链接。这些值同时驱动公开页页脚；**电话留空即从页脚隐藏**，不会显示空链接。
 
@@ -115,6 +135,7 @@ node scripts/create-user.js student 1234 student "Demo Student"
 | `SESSION_SECRET` | 内置开发值 | 生产环境必须设置 |
 | `NODE_ENV` | 空 | 设为 `production` 时启用 secure + SameSite=None Cookie |
 | `TEACHER_INVITE_CODE` | `TEACHER2026` | 老师自助注册邀请码 |
+| `SEED_DEMO` | 开启 | 设为 `0` 时不写入演示老师 / 演示课程 / 假的周表预约（**正式上线请设为 0**） |
 | `SITE_URL` | 自动推断 | 用于日历接口和启动日志的公开地址 |
 | `GOOGLE_CLIENT_ID` | 空 | 配置后启用 Google 登录 |
 | `GOOGLE_CLIENT_SECRET` | 空 | 同上 |
@@ -155,6 +176,10 @@ english-class-booking/
 │       └── auth.js           登录/注册逻辑
 ├── scripts/
 │   ├── check-i18n.js         i18n 静态审计
+│   ├── create-user.js        创建 / 重置账号
+│   ├── reset-data.js         清空业务数据（保留管理员与站点设置）
+│   ├── seed-demo-history.js  生成过去两周的模拟课堂与选课记录
+│   ├── visual-audit.js       多视口视觉审计（溢出 / 列数 / 触控尺寸 / 截图）
 │   └── ui-smoke.js           Chrome DevTools Protocol 真实浏览器冒烟测试
 └── tests/test-suite.js       接口 + 单元集成测试（自启动、隔离数据库）
 ```
@@ -246,22 +271,27 @@ course_updates   id, course_id, teacher_id, change_type, summary, created_at
 ## 9. 测试
 
 ```bash
-npm test              # 62 项：单元 + 接口全链路，自启动隔离数据库
+npm test              # 65 项：接口契约回归（自启动、隔离数据库）
+npm run test:e2e      # 54 项：多老师 / 多学生完整业务旅程与边界验收
 npm run check:i18n    # 校验所有被引用的词条在四种语言中都存在
-npm run test:ui       # 真实浏览器冒烟（需先启动服务）
+npm run test:ui       # 37 项真实浏览器冒烟（需先启动服务）
+npm run test:visual   # 25 项多视口视觉审计（需先启动服务）
 npm run check         # i18n + 语法 + 集成测试
 ```
 
-`npm test` 会自行在随机端口启动服务，使用临时数据库，不会污染 `booking.db`。
+`npm test` / `npm run test:e2e` 会自行在随机端口启动服务，使用临时数据库，不会污染 `booking.db`。
 
-浏览器冒烟测试使用本机 Chrome 的 DevTools Protocol，无需额外依赖：
+浏览器测试使用本机 Chrome 的 DevTools Protocol，无需额外依赖：
 
 ```bash
 PORT=3210 DB_PATH=/tmp/ecb-browser.db node server.js   # 终端 1
-BASE=http://127.0.0.1:3210 node scripts/ui-smoke.js    # 终端 2
+BASE=http://127.0.0.1:3210 npm run test:ui             # 终端 2
+BASE=http://127.0.0.1:3210 npm run test:visual         # 终端 2（会构造极端数据）
 ```
 
-覆盖：课程卡片渲染、通知栏、谷歌地址栏、时区徽章、多老师、语言切换、登录、教师工作台、发布表单必填项与 100 字计数器、日历页、手机视口无横向溢出与触控尺寸、JS 异常、HTTP 失败请求。截图输出到系统临时目录。
+`test:ui` 覆盖：课程卡片渲染、通知栏、谷歌地址栏、时区徽章、多老师、语言切换、登录、教师工作台、发布表单必填项与 100 字计数器、日历页、手机视口无横向溢出与触控尺寸、JS 异常、HTTP 失败请求。
+
+`test:visual` 会写入 5 位老师、超长标题 / 100 字通知 / 超长地名 / 同时段 / 取消 / 已结束等极端数据，然后在 1440 / 1024 / 820 / 390 / 360 五个视口检查横向溢出、卡片列数、长文本撑破卡片与按钮触控高度，并截图到系统临时目录。
 
 ---
 
