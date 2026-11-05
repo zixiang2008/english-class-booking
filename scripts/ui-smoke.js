@@ -26,6 +26,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const results = [];
 let jsErrors = [];
 const httpErrors = [];
+let probingLogins = false;
 let ws = null;
 let msgId = 0;
 const pending = new Map();
@@ -138,7 +139,10 @@ async function main() {
       }
       if (msg.method === 'Network.responseReceived' && msg.params.response.status >= 400) {
         const { status, url } = msg.params.response;
-        if (!/favicon\.ico$/.test(url)) httpErrors.push(`${status} ${url}`);
+        // Probing several demo accounts means the wrong guesses answer 401 by
+        // design — those are not page failures.
+        const authProbe = probingLogins && status === 401 && /\/api\/auth\/login$/.test(url);
+        if (!authProbe && !/favicon\.ico$/.test(url)) httpErrors.push(`${status} ${url}`);
       }
       listeners.slice().forEach(fn => fn(msg));
     }
@@ -210,12 +214,22 @@ async function main() {
   check('nav renders language switcher + register CTA', login.langSwitcher && login.registerCta);
 
   // log in through the page context so the session cookie sticks
+  // The demo dataset changes between environments (minimal seed vs. history
+  // seed vs. production), so try the known teacher accounts until one signs in
+  // as a teacher instead of hard-coding a single PIN.
+  probingLogins = true;
   const loggedIn = await evaluate(`(async () => {
-    const r = await fetch('/api/auth/login', { method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ username: 'teacher', password: '1111' }) });
-    return (await r.json()).success === true;
+    const candidates = [['teacher','1111'], ['test_teacher1','1314'], ['hamish','1234'], ['kevin','1234']];
+    for (const [username, password] of candidates) {
+      const r = await fetch('/api/auth/login', { method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ username, password }) });
+      const d = await r.json().catch(() => ({}));
+      if (d.success === true && d.user && d.user.role === 'teacher') return username;
+    }
+    return '';
   })()`);
-  check('teacher login succeeds with demo PIN 1111', loggedIn);
+  probingLogins = false;
+  check('teacher login succeeds with a demo account', !!loggedIn, loggedIn ? `as ${loggedIn}` : 'no candidate teacher account could sign in');
 
   // ---------------------------------------------------------------- teacher studio
   await goto('/admin.html');

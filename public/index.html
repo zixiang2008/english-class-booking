@@ -80,9 +80,39 @@
           <span id="result-count" data-i18n="v3_loading">Loading…</span>
           <button class="btn btn-ghost btn-sm" type="button" onclick="loadCourses()" data-i18n="v3_refresh">Refresh now</button>
         </div>
-        <div id="course-grid" class="course-grid">
-          <div class="loading"><div class="spinner"></div><span data-i18n="v3_loading">Loading…</span></div>
+        <div id="course-board">
+          <!-- Next 7 days: the part students actually plan around -->
+          <section class="board-section board-next" id="sec-next">
+            <div class="board-head">
+              <h2 class="board-title"><span class="board-ico">📅</span><span data-i18n="v3_secNextWeek">Next 7 days</span></h2>
+              <span class="board-count" id="count-next"></span>
+            </div>
+            <div id="course-grid" class="course-grid">
+              <div class="loading"><div class="spinner"></div><span data-i18n="v3_loading">Loading…</span></div>
+            </div>
+            <div id="next-empty" class="board-empty hidden" data-i18n="v3_secEmptyNext">No classes in the next 7 days.</div>
+          </section>
+
+          <!-- Everything further out -->
+          <section class="board-section board-future hidden" id="sec-future">
+            <div class="board-head">
+              <h2 class="board-title"><span class="board-ico">🔭</span><span data-i18n="v3_secFuture">Later classes</span></h2>
+              <span class="board-count" id="count-future"></span>
+            </div>
+            <div id="course-grid-future" class="course-grid"></div>
+          </section>
+
+          <!-- Finished classes, kept apart so the board never opens on stale lessons -->
+          <section class="board-section board-past hidden" id="sec-past">
+            <div class="board-head">
+              <h2 class="board-title"><span class="board-ico">🗂️</span><span data-i18n="v3_secPast">Past classes</span></h2>
+              <span class="board-count" id="count-past"></span>
+              <button class="btn btn-ghost btn-sm board-toggle" type="button" id="past-toggle" onclick="togglePastSection()"></button>
+            </div>
+            <div id="course-grid-past" class="course-grid is-collapsed"></div>
+          </section>
         </div>
+        <div id="course-empty" class="hidden"></div>
       </section>
 
       <!-- ============ Weekly grid ============ -->

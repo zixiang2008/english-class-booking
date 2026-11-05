@@ -110,6 +110,21 @@ async function login(username, password) {
   return m[0];
 }
 
+/**
+ * The demo dataset differs between environments (minimal seed, history seed,
+ * production), so never hard-code a single account: try the known teachers and
+ * keep the first one that actually signs in.
+ */
+async function loginAny(candidates, label) {
+  for (const [username, password] of candidates) {
+    try { return await login(username, password); } catch (_) { /* try next */ }
+  }
+  throw new Error(`no usable ${label} account among ${candidates.map(c => c[0]).join(', ')}`);
+}
+
+const TEACHER_1 = [['teacher', '1111'], ['test_teacher1', '1314'], ['hamish', '1234'], ['kevin', '1234']];
+const TEACHER_2 = [['teacher2', '2345'], ['test_teacher2', '1314'], ['kevin', '1234'], ['hamish', '1234']];
+
 const MAP = 'https://maps.app.goo.gl/VisualAudit123';
 const longTitle = 'Intensive Business English Workshop: Negotiation, Presentations & Cross-cultural Communication';
 const longNotice = '本周课程改到三楼大教室，请提前十分钟到场并带上上周的写作作业；如果迟到超过十五分钟，请提前在群里告知老师。';
@@ -117,8 +132,8 @@ const longPlace = 'Sukhumvit Road, Soi 24, K Village Community Mall, 3rd Floor, 
 
 async function seed() {
   console.log('\n── 构造极端数据 ────────────────────────────────────────────');
-  const c1 = await login('teacher', '1111');
-  const c2 = await login('teacher2', '2345');
+  const c1 = await loginAny(TEACHER_1, 'teacher');
+  const c2 = await loginAny(TEACHER_2, 'second teacher');
 
   // 第三位老师：超长姓名
   const reg = await api('POST', '/api/auth/register', {
@@ -310,10 +325,13 @@ async function main() {
   console.log('\n── 老师工作台（手机） ──────────────────────────────────────');
   await goto('/login.html');
   await evaluate(`(async () => {
-    const boxes = [...document.querySelectorAll('#pin-row .pin-input')];
-    '1111'.split('').forEach((d, i) => { boxes[i].value = d; });
-    document.getElementById('username').value = 'teacher';
-    document.getElementById('login-form').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    const candidates = [['teacher','1111'], ['test_teacher1','1314'], ['hamish','1234'], ['kevin','1234']];
+    for (const [username, password] of candidates) {
+      const r = await fetch('/api/auth/login', { method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ username, password }) });
+      const d = await r.json().catch(() => ({}));
+      if (d.success === true && d.user && d.user.role === 'teacher') return;
+    }
   })()`);
   await sleep(2500);
   await goto('/admin.html');

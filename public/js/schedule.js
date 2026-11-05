@@ -79,7 +79,10 @@ async function loadCourses(silent = false) {
   const { res, data } = await App.get('/api/courses?' + q.toString());
   if (!res.ok || !data || !data.courses) {
     if (!silent) {
-      document.getElementById('course-grid').innerHTML =
+      document.getElementById('course-board').classList.add('hidden');
+      const box = document.getElementById('course-empty');
+      box.classList.remove('hidden');
+      box.innerHTML =
         App.empty(`${App.esc(I18N.t('v3_loadFailed'))} <button class="btn btn-ghost btn-sm" onclick="loadCourses()">${App.esc(I18N.t('v3_retry'))}</button>`);
     }
     return;
@@ -188,9 +191,32 @@ function courseCardHtml(c) {
   </article>`;
 }
 
+/**
+ * The board is split into three groups so the page opens on what matters:
+ *   1. next 7 days  — prominent, the classes students actually plan around
+ *   2. later        — everything still ahead but further out
+ *   3. past         — finished classes, collapsed by default at the bottom
+ */
+let pastExpanded = false;
+let pastTouched = false; // the visitor has made an explicit show/hide choice
+
+function togglePastSection() {
+  pastExpanded = !pastExpanded;
+  pastTouched = true;
+  renderCourses();
+}
+
 function renderCourses() {
-  const grid = document.getElementById('course-grid');
+  const nextGrid = document.getElementById('course-grid');
+  const futureGrid = document.getElementById('course-grid-future');
+  const pastGrid = document.getElementById('course-grid-past');
+  const emptyBox = document.getElementById('course-empty');
+  const secFuture = document.getElementById('sec-future');
+  const secPast = document.getElementById('sec-past');
+  const nextEmpty = document.getElementById('next-empty');
+
   document.getElementById('result-count').textContent = I18N.t('v3_resultCount', { n: coursesData.length });
+
   if (!coursesData.length) {
     // Distinguish "nothing published yet" from "your filters matched nothing".
     const filtering = !!(
@@ -201,10 +227,56 @@ function renderCourses() {
     );
     const title = filtering ? I18N.t('v3_noCourses') : I18N.t('v3_noCoursesYet');
     const hint = filtering ? I18N.t('v3_noCoursesHint') : I18N.t('v3_noCoursesYetHint');
-    grid.innerHTML = App.empty(`${App.esc(title)}<br><small>${App.esc(hint)}</small>`);
+    document.getElementById('course-board').classList.add('hidden');
+    emptyBox.classList.remove('hidden');
+    emptyBox.innerHTML = App.empty(`${App.esc(title)}<br><small>${App.esc(hint)}</small>`);
     return;
   }
-  grid.innerHTML = coursesData.map(courseCardHtml).join('');
+
+  document.getElementById('course-board').classList.remove('hidden');
+  emptyBox.classList.add('hidden');
+
+  const now = Date.now();
+  const weekEnd = now + 7 * 24 * 60 * 60 * 1000;
+  const next = [];
+  const later = [];
+  const past = [];
+  for (const c of coursesData) {
+    const start = new Date(c.start_utc).getTime();
+    const end = new Date(c.end_utc).getTime();
+    if (end <= now) past.push(c);
+    else if (start <= weekEnd) next.push(c);   // ongoing classes count as "this week"
+    else later.push(c);
+  }
+  next.sort((a, b) => String(a.start_utc).localeCompare(String(b.start_utc)));
+  later.sort((a, b) => String(a.start_utc).localeCompare(String(b.start_utc)));
+  past.sort((a, b) => String(b.start_utc).localeCompare(String(a.start_utc)));
+
+  const countText = n => I18N.t('v3_resultCount', { n });
+  const paint = (grid, list) => { grid.innerHTML = list.map(courseCardHtml).join(''); };
+
+  paint(nextGrid, next);
+  document.getElementById('count-next').textContent = countText(next.length);
+  nextEmpty.classList.toggle('hidden', next.length > 0);
+
+  secFuture.classList.toggle('hidden', later.length === 0);
+  if (later.length) {
+    paint(futureGrid, later);
+    document.getElementById('count-future').textContent = countText(later.length);
+  }
+
+  secPast.classList.toggle('hidden', past.length === 0);
+  if (past.length) {
+    // Never open on an empty board: when nothing is scheduled ahead, show the
+    // finished classes straight away (unless the visitor chose otherwise).
+    if (!pastTouched) pastExpanded = next.length === 0 && later.length === 0;
+    paint(pastGrid, past);
+    document.getElementById('count-past').textContent = countText(past.length);
+    pastGrid.classList.toggle('is-collapsed', !pastExpanded);
+    const toggle = document.getElementById('past-toggle');
+    toggle.textContent = pastExpanded ? I18N.t('v3_hidePast') : I18N.t('v3_showPast');
+    toggle.setAttribute('aria-expanded', pastExpanded ? 'true' : 'false');
+  }
 }
 
 // ---------------------------------------------------------------- card actions

@@ -54,6 +54,8 @@
       v3_filterSearch: 'Search class, place or teacher…', v3_filterTeacher: 'All teachers', v3_filterStatus: 'All statuses',
       v3_filterAll: 'All classes', v3_filterMine: 'Only my bookings', v3_filterReset: 'Reset',
       v3_resultCount: '{n} classes', v3_live: 'Live',
+      v3_secNextWeek: 'Next 7 days', v3_secFuture: 'Later classes', v3_secPast: 'Past classes',
+      v3_secEmptyNext: 'No classes in the next 7 days.', v3_showPast: 'Show past classes', v3_hidePast: 'Hide past classes',
       v3_statusPending: 'Tentative', v3_statusConfirmed: 'Will run', v3_statusCancelled: 'Cancelled', v3_statusCompleted: 'Finished',
       v3_updateBadge: 'Updated', v3_lastUpdate: 'Last change', v3_revision: 'Revision {n}',
       v3_noticeTitle: '📢 Notice board', v3_noticeEmpty: 'No notice for this class yet.',
@@ -103,7 +105,7 @@
       v3_registerTeacherCode: 'Teacher invite code', v3_registerTeacherCodeHint: 'Teachers only. Leave blank for a student account.',
       v3_calendarTitle: 'Calendar subscription', v3_calendarDesc: 'Subscribe to see every class with its real timezone, notice and Google Maps location.',
       v3_calendarIcal: 'iCal / ICS feed', v3_calendarWeb: 'Public JSON view', v3_calendarCopy: 'Copy',
-      v3_footerMade: 'Built for teachers and students · v3.1',
+      v3_footerMade: 'Built for teachers and students · v3.2',
       v3_dateAt: '{date} at {time}', v3_saved: 'Saved', v3_all: 'All', v3_confirm: 'Confirm', v3_cancel: 'Cancel',
       v3_pleaseWait: 'Please wait…'
     },
@@ -159,6 +161,8 @@
       v3_filterSearch: '搜索课程、地点或老师…', v3_filterTeacher: '全部老师', v3_filterStatus: '全部状态',
       v3_filterAll: '全部课程', v3_filterMine: '只看我的预约', v3_filterReset: '重置',
       v3_resultCount: '{n} 门课程', v3_live: '实时',
+      v3_secNextWeek: '下周课程', v3_secFuture: '更远的课程', v3_secPast: '已结束课程',
+      v3_secEmptyNext: '下周暂无课程安排。', v3_showPast: '展开已结束课程', v3_hidePast: '收起已结束课程',
       v3_statusPending: '待确认', v3_statusConfirmed: '确认开课', v3_statusCancelled: '已取消', v3_statusCompleted: '已结束',
       v3_updateBadge: '有更新', v3_lastUpdate: '最近变更', v3_revision: '第 {n} 版',
       v3_noticeTitle: '📢 通知栏', v3_noticeEmpty: '该课程暂无通知。',
@@ -208,7 +212,7 @@
       v3_registerTeacherCode: '教师邀请码', v3_registerTeacherCodeHint: '仅老师填写；学生账号请留空。',
       v3_calendarTitle: '日历订阅', v3_calendarDesc: '订阅后可在日历中看到每节课的真实时区、通知与谷歌地点。',
       v3_calendarIcal: 'iCal / ICS 订阅地址', v3_calendarWeb: '公开 JSON 视图', v3_calendarCopy: '复制',
-      v3_footerMade: '为老师与学生而做 · v3.1',
+      v3_footerMade: '为老师与学生而做 · v3.2',
       v3_dateAt: '{date} {time}', v3_saved: '已保存', v3_all: '全部', v3_confirm: '确认', v3_cancel: '取消'
     },
     th: {
@@ -262,6 +266,8 @@
       v3_tabBoard: '🎯 คลาสทั้งหมด', v3_tabWeekly: '🗓️ ตารางสัปดาห์',
       v3_filterSearch: 'ค้นหาคลาส สถานที่ หรือครู…', v3_filterTeacher: 'ครูทั้งหมด', v3_filterStatus: 'ทุกสถานะ',
       v3_filterMine: 'เฉพาะที่ฉันจอง', v3_filterReset: 'รีเซ็ต', v3_resultCount: '{n} คลาส', v3_live: 'สด',
+      v3_secNextWeek: 'คลาสใน 7 วันข้างหน้า', v3_secFuture: 'คลาสที่ไกลออกไป', v3_secPast: 'คลาสที่จบแล้ว',
+      v3_secEmptyNext: 'ยังไม่มีคลาสใน 7 วันข้างหน้า', v3_showPast: 'แสดงคลาสที่จบแล้ว', v3_hidePast: 'ซ่อนคลาสที่จบแล้ว',
       v3_statusPending: 'รอยืนยัน', v3_statusConfirmed: 'เปิดสอน', v3_statusCancelled: 'ยกเลิก', v3_statusCompleted: 'จบแล้ว',
       v3_updateBadge: 'มีอัพเดท', v3_lastUpdate: 'เปลี่ยนล่าสุด',
       v3_noticeTitle: '📢 ประกาศ', v3_noticeEmpty: 'ยังไม่มีประกาศ',
@@ -280,7 +286,7 @@
       v3_formDate: 'วันที่', v3_formStart: 'เวลาเริ่ม', v3_formEnd: 'เวลาสิ้นสุด', v3_formPlace: 'สถานที่',
       v3_formGoogle: 'ลิงก์ Google Maps', v3_formCapacity: 'จำนวนที่นั่ง', v3_formRunStatus: 'สถานะการเปิดสอน',
       v3_bookingsTitle: 'การจองแบบสด', v3_refresh: 'รีเฟรช', v3_registerTeacherCode: 'รหัสเชิญครู',
-      v3_calendarTitle: 'สมัครรับปฏิทิน', v3_footerMade: 'สร้างเพื่อครูและนักเรียน · v3.1',
+      v3_calendarTitle: 'สมัครรับปฏิทิน', v3_footerMade: 'สร้างเพื่อครูและนักเรียน · v3.2',
       v3_confirm: 'ยืนยัน', v3_cancel: 'ยกเลิก'
     },
     ja: {
@@ -334,6 +340,8 @@
       v3_tabBoard: '🎯 クラス一覧', v3_tabWeekly: '🗓️ 週間表',
       v3_filterSearch: 'クラス・場所・講師を検索…', v3_filterTeacher: '全講師', v3_filterStatus: '全ステータス',
       v3_filterMine: '自分の予約のみ', v3_filterReset: 'リセット', v3_resultCount: '{n} クラス', v3_live: 'リアルタイム',
+      v3_secNextWeek: '今後7日間', v3_secFuture: 'それ以降のクラス', v3_secPast: '終了したクラス',
+      v3_secEmptyNext: '今後7日間のクラスはありません。', v3_showPast: '終了したクラスを表示', v3_hidePast: '終了したクラスを隠す',
       v3_statusPending: '仮確定', v3_statusConfirmed: '開講決定', v3_statusCancelled: '中止', v3_statusCompleted: '終了',
       v3_updateBadge: '更新あり', v3_lastUpdate: '最終更新',
       v3_noticeTitle: '📢 お知らせ', v3_noticeEmpty: 'お知らせはまだありません。',
@@ -352,7 +360,7 @@
       v3_formDate: '日付', v3_formStart: '開始', v3_formEnd: '終了', v3_formPlace: '場所',
       v3_formGoogle: 'Google マップのリンク', v3_formCapacity: '定員', v3_formRunStatus: '開講ステータス',
       v3_bookingsTitle: 'リアルタイム予約', v3_refresh: '更新', v3_registerTeacherCode: '講師招待コード',
-      v3_calendarTitle: 'カレンダー購読', v3_footerMade: '講師と生徒のために · v3.1',
+      v3_calendarTitle: 'カレンダー購読', v3_footerMade: '講師と生徒のために · v3.2',
       v3_confirm: '確認', v3_cancel: 'キャンセル'
     }
   };
