@@ -4,7 +4,6 @@
 let coursesData = [];
 let teachersData = [];
 let weekCourses = [];   // every published class, unfiltered — the timetable source
-let weekRows = [];      // distinct start times across all classes, ascending
 let weekOffset = 0;
 let activeView = 'board';
 let refreshTimer = null;
@@ -103,7 +102,6 @@ async function loadWeekCourses() {
   const { res, data } = await App.get('/api/courses');
   if (!res.ok || !data || !data.courses) return;
   weekCourses = data.courses;
-  weekRows = buildWeekRows(weekCourses);
   renderWeekly();
 }
 
@@ -515,7 +513,7 @@ function weekCellHtml(day, list, stackH = 96) {
   return `<td class="wk-td ${base}"><div class="wk-stack" style="--stack-h:${stackH}px">${chips}</div></td>`;
 }
 
-function renderWeekTable(dates, index, shortDays) {
+function renderWeekTable(dates, index, shortDays, rows) {
   const e = App.esc;
   const today = dayKeyOf(new Date());
   document.getElementById('weekly-header').innerHTML =
@@ -531,11 +529,11 @@ function renderWeekTable(dates, index, shortDays) {
     }).join('');
 
   const body = document.getElementById('weekly-body');
-  if (!weekRows.length) {
+  if (!rows.length) {
     body.innerHTML = `<tr><td colspan="8" class="wk-table-empty">${e(I18N.t('v3_noCoursesYet'))}<br><small>${e(I18N.t('v3_noCoursesYetHint'))}</small></td></tr>`;
     return;
   }
-  body.innerHTML = weekRows.map(row => {
+  body.innerHTML = rows.map(row => {
     const lists = dates.map(d => {
       const byMinute = index.get(dayKeyOf(d));
       return byMinute ? byMinute.get(row.min) : null;
@@ -605,16 +603,20 @@ function renderWeekly() {
   if (tzEl) tzEl.textContent = I18N.t('v3_wkTimezone', { tz: Intl.DateTimeFormat().resolvedOptions().timeZone });
 
   const index = buildWeekIndex(weekCourses);
-  let count = 0;
+  // Only the classes of *this* week define the rows, otherwise a start time that
+  // exists somewhere in the past would leave a permanently empty row on screen.
+  const visible = [];
   for (const d of dates) {
     const byMinute = index.get(dayKeyOf(d));
     if (!byMinute) continue;
-    for (const list of byMinute.values()) count += list.length;
+    for (const list of byMinute.values()) visible.push(...list);
   }
+  const rows = buildWeekRows(visible);
+  const count = visible.length;
   const countEl = document.getElementById('wk-count');
   if (countEl) countEl.textContent = I18N.t('v3_wkWeekCount', { n: count });
 
-  renderWeekTable(dates, index, shortDays);
+  renderWeekTable(dates, index, shortDays, rows);
   renderWeekList(dates, index, shortDays);
   renderWeekBanner(dates, count);
   hideWeekPop();
