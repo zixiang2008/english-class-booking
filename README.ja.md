@@ -396,7 +396,7 @@ npm test              # 74 件：API 契約のリグレッション（自前起�
 npm run test:e2e      # 54 件：複数講師 / 複数生徒の業務シナリオと境界
 npm run test:admin    # 35 件：管理者権限、BAN、ミュート、公開禁止、昇格、審査、ログ、連鎖削除
 npm run check:i18n    # 参照されている全キーが 4 言語に存在するか検証
-npm run test:ui       # 47 件の実ブラウザスモーク（サーバー起動が必要）
+npm run test:ui       # 48 件の実ブラウザスモーク（サーバー起動が必要）
 npm run test:visual   # 25 件のマルチビューポート視覚監査（サーバー起動が必要）
 npm run check         # i18n + 構文 + 統合テスト
 ```

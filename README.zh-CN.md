@@ -395,7 +395,7 @@ npm test              # 74 项：接口契约回归（自启动、隔离数据�
 npm run test:e2e      # 54 项：多老师 / 多学生完整业务旅程与边界验收
 npm run test:admin    # 35 项：超管权限、封禁/禁言/限制发布、提权、审核、日志、级联删除
 npm run check:i18n    # 校验所有被引用的词条在四种语言中都存在
-npm run test:ui       # 47 项真实浏览器冒烟（需先启动服务）
+npm run test:ui       # 48 项真实浏览器冒烟（需先启动服务）
 npm run test:visual   # 25 项多视口视觉审计（需先启动服务）
 npm run check         # i18n + 语法 + 集成测试
 ```

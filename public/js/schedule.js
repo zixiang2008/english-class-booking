@@ -494,18 +494,25 @@ function weekChipHtml(c, grow = 1, row = false) {
 /**
  * One cell, one time, one day. Several teachers at the same hour share the cell
  * and split its height in proportion to how long their classes run.
+ *
+ * `stackH` is a *definite* height, which is what makes the proportional split
+ * real: with an auto height flex-grow has no free space to hand out and every
+ * chip would collapse to the same size.
  */
-function weekCellHtml(day, list) {
+function weekCellHtml(day, list, stackH = 96) {
   const base = getHoliday(day) ? 'holiday-col' : '';
   if (!list || !list.length) {
     return `<td class="wk-td wk-td-empty ${base}"><span class="wk-none">${App.esc(I18N.t('v3_wkNotBookable'))}</span></td>`;
   }
   const sorted = [...list].sort(byStart);
+  // Share the cell between the classes that overlap in it, in proportion to how
+  // long each one runs (a 90-minute class gets a taller card than a 60-minute
+  // one). A single class simply fills the cell.
   const total = sorted.reduce((sum, c) => sum + durationOf(c), 0) || 1;
   const chips = sorted
     .map(c => weekChipHtml(c, Math.max(1, Math.round((durationOf(c) / total) * 100))))
     .join('');
-  return `<td class="wk-td ${base}"><div class="wk-stack">${chips}</div></td>`;
+  return `<td class="wk-td ${base}"><div class="wk-stack" style="--stack-h:${stackH}px">${chips}</div></td>`;
 }
 
 function renderWeekTable(dates, index, shortDays) {
@@ -529,10 +536,18 @@ function renderWeekTable(dates, index, shortDays) {
     return;
   }
   body.innerHTML = weekRows.map(row => {
-    const cells = dates.map(d => {
+    const lists = dates.map(d => {
       const byMinute = index.get(dayKeyOf(d));
-      return weekCellHtml(d, byMinute ? byMinute.get(row.min) : null);
-    }).join('');
+      return byMinute ? byMinute.get(row.min) : null;
+    });
+    // The row is as tall as the slot it represents (so a 2-hour class looks
+    // longer than a 1-hour one) but never too short for the busiest cell: each
+    // chip needs room above its readable floor, otherwise the floor would eat
+    // all the free space and the proportional split would collapse to equal.
+    const maxChips = lists.reduce((m, l) => Math.max(m, l ? l.length : 0), 0);
+    const span = Math.max(30, row.endMin - row.min);
+    const stackH = Math.max(Math.min(320, Math.round(span * 1.2)), maxChips * 76, 96);
+    const cells = lists.map((list, i) => weekCellHtml(dates[i], list, stackH)).join('');
     return `<tr>
       <td class="wk-time"><strong>${e(minuteLabel(row.min))}</strong><span>${e(minuteLabel(row.endMin))}</span></td>
       ${cells}

@@ -416,7 +416,7 @@ npm test              # 74 API contract regressions (self-hosted, isolated DB)
 npm run test:e2e      # 54 multi-teacher / multi-student journeys and edge cases
 npm run test:admin    # 35 admin authority, bans, mutes, promotion, moderation, audit, cascade
 npm run check:i18n    # every referenced key exists in all four languages
-npm run test:ui       # 47 real-browser smoke checks (needs a running server)
+npm run test:ui       # 48 real-browser smoke checks (needs a running server)
 npm run test:visual   # 25 multi-viewport visual checks (needs a running server)
 npm run check         # i18n + syntax + integration tests
 ```

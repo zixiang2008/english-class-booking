@@ -215,11 +215,42 @@ async function main() {
     `empty=${week.empty} label="${week.emptyLabel}" leaked=${week.emptyHasCourse}`);
   check('mobile weekly list mirrors the grid', week.listCards === 7, `day cards=${week.listCards}`);
 
+  // Several teachers in the same slot must split the cell in proportion to how
+  // long each class runs — and none of them may be clipped. Layout has to be
+  // measurable, so show the timetable first.
+  await evaluate("switchView('weekly')");
+  await sleep(500);
+  const mixed = await evaluate(`(() => {
+    const stacks = [...document.querySelectorAll('#week-table-wrap .wk-stack')].filter(s => s.children.length > 1);
+    if (!stacks.length) return { stacks: 0 };
+    const chips = [...stacks[0].children];
+    return {
+      stacks: stacks.length,
+      heights: chips.map(c => Math.round(c.getBoundingClientRect().height)),
+      clipped: chips.filter(c => c.scrollHeight > c.clientHeight + 1).length
+    };
+  })()`);
+  check('overlapping classes split their cell in proportion to class length',
+    mixed.stacks === 0 || (Math.max(...mixed.heights) > Math.min(...mixed.heights) && mixed.clipped === 0),
+    JSON.stringify(mixed));
+  await evaluate("switchView('board')");
+  await sleep(300);
+
   // language switching
+  // The first card may be an offline class (Google address bar) or an online one
+  // (meeting bar), so compare against both localised headings instead of
+  // hard-coding the English wording.
   await evaluate("I18N.setLang('ja')");
   await sleep(400);
-  const jaText = await evaluate("document.querySelector('.google-bar-head span').textContent");
-  check('language switch updates course UI (ja)', /Google|住所/.test(jaText), jaText);
+  const ja = await evaluate(`(() => {
+    const head = document.querySelector('.course-card .google-bar-head span');
+    return {
+      text: (head ? head.textContent : '').trim(),
+      expected: [I18N.t('v3_googleTitle'), I18N.t('v3_onlineClass')].map(s => s.trim())
+    };
+  })()`);
+  check('language switch updates course UI (ja)',
+    !!ja.text && ja.expected.some(x => ja.text.includes(x)), JSON.stringify(ja));
   await evaluate("I18N.setLang('en')");
   await sleep(300);
 

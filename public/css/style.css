@@ -402,16 +402,18 @@ table.wk-grid td.wk-td { padding: 4px; vertical-align: top; text-align: left; }
 .wk-time span { display: block; font-size: 10.5px; color: var(--muted); font-weight: 650; }
 .wk-td-empty { vertical-align: middle !important; text-align: center !important; }
 .wk-none { font-size: 10px; font-weight: 650; color: #c2c8da; }
-.wk-stack { display: flex; flex-direction: column; gap: 4px; min-height: 54px; }
+.wk-stack { display: flex; flex-direction: column; gap: 4px; height: var(--stack-h, 96px); }
 
 .wk-course {
   display: flex; flex-direction: column; gap: 1px;
-  flex: var(--grow, 1) 1 auto; min-height: 48px; width: 100%;
+  min-height: 54px; width: 100%;
   padding: 6px 7px; border-radius: 9px; border: 1px solid transparent;
   background: var(--surface-2); color: var(--text-2); font: inherit;
   text-align: left; line-height: 1.25; overflow: hidden;
   transition: transform .12s ease, box-shadow .12s ease;
 }
+/* Only the grid splits a cell proportionally; the phone day list sizes to content. */
+.wk-stack > .wk-course { flex: var(--grow, 1) 1 0; }
 .wk-course:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
 .wk-course .wk-c-time { font-size: 9.5px; font-weight: 800; opacity: .8; letter-spacing: -.01em; }
 .wk-course .wk-c-title { font-size: 11.5px; font-weight: 750; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -444,7 +446,7 @@ table.wk-grid td.wk-td { padding: 4px; vertical-align: top; text-align: left; }
 .wk-day-count { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--muted); }
 .wk-day-body { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px 10px; }
 .wk-day-empty { font-size: 12px; color: #b3bacd; font-weight: 600; padding: 2px 2px; }
-.wk-course-row { min-height: 0; padding: 8px 10px; gap: 2px; }
+.wk-course-row { flex: 0 0 auto; min-height: 0; padding: 8px 10px; gap: 2px; }
 .wk-course-row .wk-c-time { font-size: 10.5px; }
 .wk-course-row .wk-c-title { font-size: 13.5px; }
 .wk-course-row .wk-c-teacher { font-size: 11px; }
