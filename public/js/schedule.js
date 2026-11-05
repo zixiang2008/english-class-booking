@@ -432,10 +432,10 @@ async function openCourseDetail(id) {
 
 // ---------------------------------------------------------------- weekly timetable
 /**
- * The weekly timetable is built from *published classes*, not from a recurring
- * availability table: a cell is bookable only when a teacher has actually
- * published a class in it. Every other cell stays "not bookable", which is the
- * whole point of a week view — it mirrors what is really on offer.
+ * The weekly timetable is a full time ruler. Every slot of the day stays on
+ * screen and a published class only occupies the stretch it really runs for —
+ * everything else is shown as "not published". A week view has to show both
+ * what is on offer *and* what nobody has published yet.
  */
 const pad2 = n => String(n).padStart(2, '0');
 const dayKeyOf = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
@@ -443,16 +443,34 @@ const minuteLabel = m => `${pad2(Math.floor(m / 60) % 24)}:${pad2(m % 60)}`;
 const startMinuteOf = c => { const d = new Date(c.start_utc); return d.getHours() * 60 + d.getMinutes(); };
 const durationOf = c => Math.max(15, Math.round((new Date(c.end_utc).getTime() - new Date(c.start_utc).getTime()) / 60000));
 const endMinuteOf = c => (startMinuteOf(c) + durationOf(c)) % 1440;
+const endAbsOf = c => startMinuteOf(c) + durationOf(c);   // never wraps: 24:00 stays 1440
 const byStart = (a, b) => String(a.start_utc).localeCompare(String(b.start_utc));
 
-/** Rows = every distinct start time ever published, ascending. */
-function buildWeekRows(courses) {
-  const map = new Map();
+const WEEK_PX_PER_MIN = 1;   // one minute of class = one pixel of row height
+const WEEK_MIN_ROW = 34;     // ... but a slot never collapses below this
+
+/**
+ * The complete time ruler of the week: every class boundary plus every whole
+ * hour in between, rounded outwards to the hour. The empty hours are kept on
+ * purpose — they are the "not published" part of the day.
+ */
+function buildTimeAxis(courses) {
+  if (!courses.length) return [];
+  const points = new Set();
+  let min = Infinity;
+  let max = -Infinity;
   for (const c of courses) {
-    const s = startMinuteOf(c);
-    map.set(s, Math.max(map.get(s) || 0, s + durationOf(c)));
+    const from = startMinuteOf(c);
+    const to = endAbsOf(c);
+    points.add(from);
+    points.add(to);
+    if (from < min) min = from;
+    if (to > max) max = to;
   }
-  return [...map.entries()].sort((a, b) => a[0] - b[0]).map(([min, endMin]) => ({ min, endMin }));
+  const first = Math.floor(min / 60) * 60;
+  const last = Math.ceil(max / 60) * 60;
+  for (let m = first; m <= last; m += 60) points.add(m);
+  return [...points].sort((a, b) => a - b);
 }
 
 /** dayKey -> startMinute -> [classes] */
@@ -467,6 +485,36 @@ function buildWeekIndex(courses) {
     byMinute.get(s).push(c);
   }
   return index;
+}
+
+/**
+ * dayKey -> startMinute -> { startMin, endMin, list }.
+ * Classes that overlap on the same day are merged into one block, because a cell
+ * can only start once: the second class would otherwise have nowhere to render.
+ */
+function buildDayBlocks(dates, index) {
+  const blocks = new Map();
+  for (const d of dates) {
+    const byMinute = index.get(dayKeyOf(d));
+    const map = new Map();
+    if (byMinute) {
+      const all = [...byMinute.values()].flat().sort(byStart);
+      let cur = null;
+      for (const c of all) {
+        const from = startMinuteOf(c);
+        const to = endAbsOf(c);
+        if (cur && from < cur.endMin) {
+          cur.list.push(c);
+          cur.endMin = Math.max(cur.endMin, to);
+        } else {
+          cur = { startMin: from, endMin: to, list: [c] };
+          map.set(from, cur);
+        }
+      }
+    }
+    blocks.set(dayKeyOf(d), map);
+  }
+  return blocks;
 }
 
 function weekStateOf(c) {
@@ -490,30 +538,22 @@ function weekChipHtml(c, grow = 1, row = false) {
 }
 
 /**
- * One cell, one time, one day. Several teachers at the same hour share the cell
- * and split its height in proportion to how long their classes run.
- *
- * `stackH` is a *definite* height, which is what makes the proportional split
- * real: with an auto height flex-grow has no free space to hand out and every
- * chip would collapse to the same size.
+ * One block of one day, spanning as many rows as the class lasts. `stackH` is a
+ * *definite* height so that several overlapping classes really do split the
+ * block in proportion to their length.
  */
-function weekCellHtml(day, list, stackH = 96) {
+function weekCellHtml(day, list, stackH = 96, rowspan = 1) {
   const base = getHoliday(day) ? 'holiday-col' : '';
-  if (!list || !list.length) {
-    return `<td class="wk-td wk-td-empty ${base}"><span class="wk-none">${App.esc(I18N.t('v3_wkNotBookable'))}</span></td>`;
-  }
   const sorted = [...list].sort(byStart);
-  // Share the cell between the classes that overlap in it, in proportion to how
-  // long each one runs (a 90-minute class gets a taller card than a 60-minute
-  // one). A single class simply fills the cell.
   const total = sorted.reduce((sum, c) => sum + durationOf(c), 0) || 1;
   const chips = sorted
     .map(c => weekChipHtml(c, Math.max(1, Math.round((durationOf(c) / total) * 100))))
     .join('');
-  return `<td class="wk-td ${base}"><div class="wk-stack" style="--stack-h:${stackH}px">${chips}</div></td>`;
+  const span = rowspan > 1 ? ` rowspan="${rowspan}"` : '';
+  return `<td class="wk-td ${base}"${span}><div class="wk-stack" style="--stack-h:${Math.max(46, Math.round(stackH))}px">${chips}</div></td>`;
 }
 
-function renderWeekTable(dates, index, shortDays, rows) {
+function renderWeekTable(dates, index, shortDays, axis, blocks) {
   const e = App.esc;
   const today = dayKeyOf(new Date());
   document.getElementById('weekly-header').innerHTML =
@@ -529,49 +569,85 @@ function renderWeekTable(dates, index, shortDays, rows) {
     }).join('');
 
   const body = document.getElementById('weekly-body');
-  if (!rows.length) {
+  if (axis.length < 2) {
     body.innerHTML = `<tr><td colspan="8" class="wk-table-empty">${e(I18N.t('v3_noCoursesYet'))}<br><small>${e(I18N.t('v3_noCoursesYetHint'))}</small></td></tr>`;
     return;
   }
-  body.innerHTML = rows.map(row => {
-    const lists = dates.map(d => {
-      const byMinute = index.get(dayKeyOf(d));
-      return byMinute ? byMinute.get(row.min) : null;
+
+  const rows = [];
+  const covered = dates.map(() => -1);   // index up to which a rowspan already fills the column
+  for (let i = 0; i < axis.length - 1; i++) {
+    const from = axis[i];
+    const to = axis[i + 1];
+    const rowH = Math.max(WEEK_MIN_ROW, Math.round((to - from) * WEEK_PX_PER_MIN));
+    const cells = [];
+    dates.forEach((d, di) => {
+      if (covered[di] > i) return;                       // hidden behind a rowspan
+      const block = (blocks.get(dayKeyOf(d)) || new Map()).get(from);
+      if (!block) {
+        const base = getHoliday(d) ? 'holiday-col' : '';
+        cells.push(`<td class="wk-td wk-td-empty ${base}"><span class="wk-none">${e(I18N.t('v3_wkNotPublished'))}</span></td>`);
+        return;
+      }
+      let endIdx = axis.indexOf(block.endMin);
+      if (endIdx <= i) endIdx = i + 1;
+      covered[di] = endIdx;
+      // The block is as tall as the class runs, but several classes sharing it
+      // each need room for their text, so the rows grow to fit them.
+      const stackH = Math.max(
+        (block.endMin - block.startMin) * WEEK_PX_PER_MIN - 8,
+        block.list.length * 76,
+        60
+      );
+      cells.push(weekCellHtml(d, block.list, stackH, endIdx - i));
     });
-    // The row is as tall as the slot it represents (so a 2-hour class looks
-    // longer than a 1-hour one) but never too short for the busiest cell: each
-    // chip needs room above its readable floor, otherwise the floor would eat
-    // all the free space and the proportional split would collapse to equal.
-    const maxChips = lists.reduce((m, l) => Math.max(m, l ? l.length : 0), 0);
-    const span = Math.max(30, row.endMin - row.min);
-    const stackH = Math.max(Math.min(320, Math.round(span * 1.2)), maxChips * 76, 96);
-    const cells = lists.map((list, i) => weekCellHtml(dates[i], list, stackH)).join('');
-    return `<tr>
-      <td class="wk-time"><strong>${e(minuteLabel(row.min))}</strong><span>${e(minuteLabel(row.endMin))}</span></td>
-      ${cells}
-    </tr>`;
-  }).join('');
+    const last = i === axis.length - 2;
+    rows.push(`<tr style="height:${rowH}px">
+      <td class="wk-time"><strong>${e(minuteLabel(from))}</strong>${last ? `<span>${e(minuteLabel(to))}</span>` : ''}</td>
+      ${cells.join('')}
+    </tr>`);
+  }
+  body.innerHTML = rows.join('');
 }
 
-/** Phone layout: the same week as a stack of day cards, no sideways scrolling. */
-function renderWeekList(dates, index, shortDays) {
+/**
+ * Phone layout: the same ruler as a stack of day cards. Published classes show
+ * as cards, the gaps between them are folded into one "not published" line so
+ * the day stays complete without flooding the screen.
+ */
+function renderWeekList(dates, index, shortDays, axis, blocks) {
   const e = App.esc;
   const today = dayKeyOf(new Date());
   document.getElementById('week-list').innerHTML = dates.map((d, i) => {
     const h = getHoliday(d);
-    const byMinute = index.get(dayKeyOf(d));
-    const list = byMinute ? [...byMinute.values()].flat().sort(byStart) : [];
+    const map = blocks.get(dayKeyOf(d)) || new Map();
+    const items = [];
+    let k = 0;
+    while (axis.length > 1 && k < axis.length - 1) {
+      const from = axis[k];
+      const block = map.get(from);
+      if (block) {
+        items.push(block.list.map(c => weekChipHtml(c, 1, true)).join(''));
+        let endIdx = axis.indexOf(block.endMin);
+        if (endIdx <= k) endIdx = k + 1;
+        k = endIdx;
+      } else {
+        let j = k + 1;
+        while (j < axis.length - 1 && !map.get(axis[j])) j++;
+        items.push(`<div class="wk-gap"><span>${e(minuteLabel(from))}–${e(minuteLabel(axis[j]))}</span><em>${e(I18N.t('v3_wkNotPublished'))}</em></div>`);
+        k = j;
+      }
+    }
+    const count = [...map.values()].reduce((n, b) => n + b.list.length, 0);
     return `<section class="wk-day${dayKeyOf(d) === today ? ' is-today' : ''}">
       <header class="wk-day-head">
         <span class="wk-day-name">${e(shortDays[i])}</span>
         <span class="wk-day-date">${e(I18N.formatDateShort(d))}</span>
         ${h ? `<span class="wk-day-holiday">${h[2]} ${e(h[3])}</span>` : ''}
-        <span class="wk-day-count">${list.length ? e(I18N.t('v3_resultCount', { n: list.length })) : ''}</span>
+        <span class="wk-day-count">${count ? e(I18N.t('v3_resultCount', { n: count })) : ''}</span>
       </header>
       <div class="wk-day-body">
-        ${list.length
-          ? list.map(c => weekChipHtml(c, 1, true)).join('')
-          : `<div class="wk-day-empty">${e(I18N.t('v3_wkNotBookable'))}</div>`}
+        ${items.length ? items.join('') : `<div class="wk-day-empty">${e(I18N.t('v3_wkNotPublished'))}</div>`}
       </div>
     </section>`;
   }).join('');
@@ -611,13 +687,14 @@ function renderWeekly() {
     if (!byMinute) continue;
     for (const list of byMinute.values()) visible.push(...list);
   }
-  const rows = buildWeekRows(visible);
+  const axis = buildTimeAxis(visible);
+  const blocks = buildDayBlocks(dates, index);
   const count = visible.length;
   const countEl = document.getElementById('wk-count');
   if (countEl) countEl.textContent = I18N.t('v3_wkWeekCount', { n: count });
 
-  renderWeekTable(dates, index, shortDays, rows);
-  renderWeekList(dates, index, shortDays);
+  renderWeekTable(dates, index, shortDays, axis, blocks);
+  renderWeekList(dates, index, shortDays, axis, blocks);
   renderWeekBanner(dates, count);
   hideWeekPop();
 }

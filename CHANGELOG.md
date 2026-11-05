@@ -12,6 +12,30 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.4.0] — 2026-11-06
+
+### Changed
+- **The weekly timetable keeps the whole time span.** Rows are no longer only the
+  start times somebody happened to publish; the table now renders a continuous
+  ruler (every class boundary plus every whole hour in between) and a class
+  occupies exactly the rows it runs for via `rowspan`. A 10:00–12:00 class fills
+  the 10:00 and 11:00 rows instead of collapsing into one line, and 12:00 / 13:00
+  / 14:00 stay on screen.
+- Every slot without a published class is labelled **not published** (was "not
+  bookable"), so the table reads as "here is the whole day, these are the parts
+  teachers have published".
+- Overlapping classes on the same day are merged into one block that starts once
+  and spans to the latest end, so a second class in the same hour still has a
+  place to render.
+- The phone day cards follow the same ruler: gaps between classes are folded into
+  a single dashed "12:00–15:00 · not published" line.
+
+### Tests
+- Browser smoke: asserts a class really occupies multiple rows (`rowspan`) and
+  keeps the proportional split for overlapping classes.
+
+---
+
 ## [3.3.1] — 2026-11-05
 
 ### Fixed
@@ -167,6 +191,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+[3.4.0]: https://github.com/zixiang2008/CMenglishClass/compare/v3.3.1...v3.4.0
 [3.3.1]: https://github.com/zixiang2008/CMenglishClass/compare/v3.3.0...v3.3.1
 [3.3.0]: https://github.com/zixiang2008/CMenglishClass/compare/v3.2.1...v3.3.0
 [3.2.1]: https://github.com/zixiang2008/CMenglishClass/compare/v3.2.0...v3.2.1

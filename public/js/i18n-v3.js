@@ -85,8 +85,8 @@
       v3_loading: 'Loading…', v3_loadFailed: 'Could not load. Please retry.', v3_retry: 'Retry',
       v3_weeklyTitle: 'Weekly timetable',
       v3_weeklyDesc: 'Every published class sits in its real slot. Hover a class to preview it, click to open and book.',
-      v3_weeklyNote: 'A slot only becomes bookable once a teacher has published a class in it. Use \u2039 \u203a to walk back through the weeks \u2014 finished classes are kept as history.',
-      v3_wkNotBookable: 'Not bookable', v3_wkBookable: 'Bookable', v3_wkMine: 'My booking',
+      v3_weeklyNote: 'The whole day stays on the ruler: a class only fills the time it really runs for, every other slot is marked \u201cnot published\u201d. Use \u2039 \u203a to walk back through the weeks \u2014 finished classes are kept as history.',
+      v3_wkNotBookable: 'Not bookable', v3_wkNotPublished: 'Not published', v3_wkBookable: 'Bookable', v3_wkMine: 'My booking',
       v3_wkWeekCount: '{n} classes this week',
       v3_wkEmptyWeek: 'No teacher has published a class this week \u2014 every slot stays not bookable.',
       v3_wkPastWeek: 'This week is already over. These classes are kept as history.',
@@ -134,7 +134,7 @@
       v3_registerTeacherCode: 'Teacher invite code', v3_registerTeacherCodeHint: 'Teachers only. Leave blank for a student account.',
       v3_calendarTitle: 'Calendar subscription', v3_calendarDesc: 'Subscribe to see every class with its real timezone, notice and Google Maps location.',
       v3_calendarIcal: 'iCal / ICS feed', v3_calendarWeb: 'Public JSON view', v3_calendarCopy: 'Copy',
-      v3_footerMade: 'Built for teachers and students · v3.3',
+      v3_footerMade: 'Built for teachers and students · v3.4',
       v3_dateAt: '{date} at {time}', v3_saved: 'Saved', v3_all: 'All', v3_confirm: 'Confirm', v3_cancel: 'Cancel',
       v3_pleaseWait: 'Please wait…'
     },
@@ -221,8 +221,8 @@
       v3_loading: '加载中…', v3_loadFailed: '加载失败，请重试。', v3_retry: '重试',
       v3_weeklyTitle: '每周时间表',
       v3_weeklyDesc: '已发布的课程按真实时间落到对应的格子里。悬停可预览，点击可打开详情并预订。',
-      v3_weeklyNote: '只有老师发布过课程的时段才是「可约」，没发布课程的时段一律「不可约」。用 \u2039 \u203a 往前翻可以看历史课程。',
-      v3_wkNotBookable: '不可约', v3_wkBookable: '可约', v3_wkMine: '我的预约',
+      v3_weeklyNote: '整段时间都保留在时间轴上：课程只占它真正上课的那一段，其余时段标注为「未发布」。用 \u2039 \u203a 往前翻可以看历史课程。',
+      v3_wkNotBookable: '不可约', v3_wkNotPublished: '未发布', v3_wkBookable: '可约', v3_wkMine: '我的预约',
       v3_wkWeekCount: '本周 {n} 门课',
       v3_wkEmptyWeek: '这一周还没有老师发布课程，所有时段都是「不可约」。',
       v3_wkPastWeek: '这一周已经结束，显示的是历史课程。',
@@ -270,7 +270,7 @@
       v3_registerTeacherCode: '教师邀请码', v3_registerTeacherCodeHint: '仅老师填写；学生账号请留空。',
       v3_calendarTitle: '日历订阅', v3_calendarDesc: '订阅后可在日历中看到每节课的真实时区、通知与谷歌地点。',
       v3_calendarIcal: 'iCal / ICS 订阅地址', v3_calendarWeb: '公开 JSON 视图', v3_calendarCopy: '复制',
-      v3_footerMade: '为老师与学生而做 · v3.3',
+      v3_footerMade: '为老师与学生而做 · v3.4',
       v3_dateAt: '{date} {time}', v3_saved: '已保存', v3_all: '全部', v3_confirm: '确认', v3_cancel: '取消'
     },
     th: {
@@ -344,7 +344,7 @@
       v3_formDate: 'วันที่', v3_formStart: 'เวลาเริ่ม', v3_formEnd: 'เวลาสิ้นสุด', v3_formPlace: 'สถานที่',
       v3_formGoogle: 'ลิงก์ Google Maps', v3_formCapacity: 'จำนวนที่นั่ง', v3_formRunStatus: 'สถานะการเปิดสอน',
       v3_bookingsTitle: 'การจองแบบสด', v3_refresh: 'รีเฟรช', v3_registerTeacherCode: 'รหัสเชิญครู',
-      v3_calendarTitle: 'สมัครรับปฏิทิน', v3_footerMade: 'สร้างเพื่อครูและนักเรียน · v3.3',
+      v3_calendarTitle: 'สมัครรับปฏิทิน', v3_footerMade: 'สร้างเพื่อครูและนักเรียน · v3.4',
       v3_confirm: 'ยืนยัน', v3_cancel: 'ยกเลิก'
     },
     ja: {
@@ -418,7 +418,7 @@
       v3_formDate: '日付', v3_formStart: '開始', v3_formEnd: '終了', v3_formPlace: '場所',
       v3_formGoogle: 'Google マップのリンク', v3_formCapacity: '定員', v3_formRunStatus: '開講ステータス',
       v3_bookingsTitle: 'リアルタイム予約', v3_refresh: '更新', v3_registerTeacherCode: '講師招待コード',
-      v3_calendarTitle: 'カレンダー購読', v3_footerMade: '講師と生徒のために · v3.3',
+      v3_calendarTitle: 'カレンダー購読', v3_footerMade: '講師と生徒のために · v3.4',
       v3_confirm: '確認', v3_cancel: 'キャンセル'
     }
   };
@@ -462,8 +462,8 @@
       v3_legal4Body: 'แพลตฟอร์มไม่รับประกันคุณภาพหรือผลลัพธ์ของคลาสจากบุคคลอื่น แต่ความรับผิดที่กฎหมายกำหนดให้แพลตฟอร์มต้องรับนั้นไม่ถูกยกเว้นด้วยข้อความนี้',
       v3_legalFoot: 'การใช้งานแพลตฟอร์มนี้ถือว่าผู้ใช้ได้อ่านและเข้าใจข้อความข้างต้นแล้ว',
       v3_weeklyDesc: 'คลาสที่เผยแพร่แล้วจะอยู่ในช่องเวลาจริงของตัวเอง วางเมาส์เพื่อดูตัวอย่าง คลิกเพื่อเปิดรายละเอียดและจอง',
-      v3_weeklyNote: 'ช่องจะจองได้ก็ต่อเมื่อครูเผยแพร่คลาสในช่องนั้นแล้ว ช่องที่ยังไม่มีคลาสจะเป็น "จองไม่ได้" ใช้ \u2039 \u203a เพื่อดูสัปดาห์ที่ผ่านมา',
-      v3_wkNotBookable: 'จองไม่ได้', v3_wkBookable: 'จองได้', v3_wkMine: 'การจองของฉัน',
+      v3_weeklyNote: 'ทั้งช่วงเวลายังอยู่บนตาราง คลาสจะกินเฉพาะช่วงที่สอนจริง ช่องอื่นระบุว่า "ยังไม่ประกาศ" ใช้ \u2039 \u203a เพื่อดูสัปดาห์ที่ผ่านมา',
+      v3_wkNotBookable: 'จองไม่ได้', v3_wkNotPublished: 'ยังไม่ประกาศ', v3_wkBookable: 'จองได้', v3_wkMine: 'การจองของฉัน',
       v3_wkWeekCount: 'สัปดาห์นี้ {n} คลาส',
       v3_wkEmptyWeek: 'สัปดาห์นี้ยังไม่มีครูเผยแพร่คลาส ทุกช่องจึงจองไม่ได้',
       v3_wkPastWeek: 'สัปดาห์นี้ผ่านไปแล้ว คลาสเหล่านี้ถูกเก็บไว้เป็นประวัติ',
@@ -533,8 +533,8 @@
       v3_legal4Body: '本プラットフォームは第三者の講座の品質や成果を保証しませんが、法令上プラットフォームが負う責任が本免責事項によって免除されるものではありません。',
       v3_legalFoot: '本プラットフォームを利用した時点で、上記の内容を読み理解したものとみなします。',
       v3_weeklyDesc: '公開されたクラスが実際の時間枠に並びます。ホバーでプレビュー、クリックで詳細と予約ができます。',
-      v3_weeklyNote: '講師がクラスを公開した枠だけが予約可能で、公開のない枠は「予約不可」のままです。\u2039 \u203a で過去の週も確認できます。',
-      v3_wkNotBookable: '予約不可', v3_wkBookable: '予約可', v3_wkMine: '自分の予約',
+      v3_weeklyNote: '時間軸は一日中そのまま表示され、クラスは実際に授業する時間だけを占めます。それ以外の枠は「未公開」と表示されます。\u2039 \u203a で過去の週も確認できます。',
+      v3_wkNotBookable: '予約不可', v3_wkNotPublished: '未公開', v3_wkBookable: '予約可', v3_wkMine: '自分の予約',
       v3_wkWeekCount: '今週 {n} クラス',
       v3_wkEmptyWeek: '今週はまだ講師がクラスを公開していないため、すべての枠が予約不可です。',
       v3_wkPastWeek: 'この週は終了しました。表示しているのは過去のクラスです。',

@@ -205,15 +205,20 @@ async function main() {
       emptyLabel: empty.length ? empty[0].textContent.trim() : '',
       emptyHasCourse: empty.filter(td => td.querySelector('.wk-course')).length,
       onlineChips: chips.filter(c => c.querySelector('.wk-mode-ico')).length,
-      listCards: document.querySelectorAll('#week-list .wk-day').length
+      listCards: document.querySelectorAll('#week-list .wk-day').length,
+      rowspans: [...document.querySelectorAll('#week-table-wrap td[rowspan]')].map(td => Number(td.getAttribute('rowspan'))),
+      rows: document.querySelectorAll('#week-table-wrap tbody tr').length
     };
   })()`);
   check('weekly grid renders published classes as chips', week.chips >= 1, JSON.stringify(week));
   check('weekly grid has 7 day columns', week.days >= 7, `th=${week.days}`);
-  check('empty weekly cells are labelled as not bookable',
+  check('empty weekly cells are labelled as not published',
     week.empty === 0 || (week.emptyLabel.length > 0 && week.emptyHasCourse === 0),
     `empty=${week.empty} label="${week.emptyLabel}" leaked=${week.emptyHasCourse}`);
   check('mobile weekly list mirrors the grid', week.listCards === 7, `day cards=${week.listCards}`);
+  check('a class occupies the rows it actually runs for',
+    week.rowspans.length > 0 && Math.max(...week.rowspans) >= 2,
+    `rowspans=${JSON.stringify(week.rowspans)}`);
 
   // Several teachers in the same slot must split the cell in proportion to how
   // long each class runs — and none of them may be clipped. Layout has to be
