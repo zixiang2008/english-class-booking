@@ -12,6 +12,25 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.3.1] — 2026-11-05
+
+### Fixed
+- **The proportional split was not real.** A cell's height was auto, so
+  `flex-grow` had no free space to distribute and every class in a shared slot
+  rendered the same height. The cell now gets a definite height derived from the
+  slot length and the busiest cell, so a 90-minute class really is taller than a
+  60-minute one (measured 90 / 65 / 65 px in a three-class slot).
+- **The phone day list collapsed.** Giving every chip `flex-basis: 0` also
+  shrank the day cards to a single line, because they are flex children of the
+  day body. Only chips inside the grid split now; the day cards size to content.
+
+### Tests
+- The browser smoke suite asserts that overlapping classes differ in height and
+  that none of them is clipped, and it matches the language switch against both
+  the Google address bar and the online meeting bar headings.
+
+---
+
 ## [3.3.0] — 2026-11-05
 
 ### Added
@@ -148,6 +167,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+[3.3.1]: https://github.com/zixiang2008/CMenglishClass/compare/v3.3.0...v3.3.1
 [3.3.0]: https://github.com/zixiang2008/CMenglishClass/compare/v3.2.1...v3.3.0
 [3.2.1]: https://github.com/zixiang2008/CMenglishClass/compare/v3.2.0...v3.2.1
 [3.2.0]: https://github.com/zixiang2008/CMenglishClass/compare/v3.1.0...v3.2.0

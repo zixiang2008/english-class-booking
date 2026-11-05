@@ -384,7 +384,7 @@ admin_actions    id, admin_id, admin_name, target_user_id, target_name,
 
 | Method | Path | หมายเหตุ |
 | --- | --- | --- |
-| GET | `/healthz` | `{ ok: true, version: "3.3.0" }` |
+| GET | `/healthz` | `{ ok: true, version: "3.3.1" }` |
 
 ---
 

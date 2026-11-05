@@ -1,6 +1,6 @@
 {
   "name": "english-class-booking",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "description": "English Class Booking v3 - multi-teacher class board, notice board, Google Maps address bar, real timezones, online & offline classes, live bookings (4-language i18n)",
   "main": "server.js",
   "scripts": {

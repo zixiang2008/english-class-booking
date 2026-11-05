@@ -405,7 +405,7 @@ localised from `X-Language` / `Accept-Language`.
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/healthz` | `{ ok: true, version: "3.3.0" }` |
+| GET | `/healthz` | `{ ok: true, version: "3.3.1" }` |
 
 ---
 

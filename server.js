@@ -46,7 +46,7 @@ async function startServer() {
 
     app.use(express.static(path.join(__dirname, 'public'), { maxAge: 0 }));
 
-    app.get('/healthz', (req, res) => res.json({ ok: true, version: '3.3.0', time: new Date().toISOString() }));
+    app.get('/healthz', (req, res) => res.json({ ok: true, version: '3.3.1', time: new Date().toISOString() }));
 
     app.use('/api/auth', require('./routes/auth'));
     app.use('/api/schedule', require('./routes/schedule'));
@@ -66,7 +66,7 @@ async function startServer() {
 
     const server = app.listen(PORT, () => {
         const host = process.env.SITE_URL || `http://localhost:${PORT}`;
-        console.log('\n🎓 English Class Booking System v3.3.0 is running!');
+        console.log('\n🎓 English Class Booking System v3.3.1 is running!');
         console.log(`   📖 Student / course board : ${host}/`);
         console.log(`   🔧 Teacher admin          : ${host}/admin.html`);
         console.log(`   🛡️  Super admin console    : ${host}/superadmin.html`);
