@@ -11,7 +11,10 @@ const express = require('express');
 const router = express.Router();
 const { getDb } = require('../database');
 const { t } = require('../i18n-server');
-const { requireTeacher, requireStudent, requireLogin } = require('../lib/guards');
+const {
+  requireTeacher, requireStudent, requireLogin,
+  requireCanPublish, requireCanEdit, requireCanBook
+} = require('../lib/guards');
 const { validateCourse, RUN_STATUSES } = require('../lib/course-validation');
 const { gmtOffsetLabel, googleCalendarUrl, COMMON_TIMEZONES, sqliteToIso } = require('../lib/time');
 
@@ -175,7 +178,7 @@ router.get('/:id', (req, res) => {
 
 // ------------------------------------------------------------------ teacher
 
-router.post('/', requireTeacher, (req, res) => {
+router.post('/', requireTeacher, requireCanPublish, (req, res) => {
   try {
     const db = getDb();
     const result = validateCourse(req.body);
@@ -212,7 +215,7 @@ router.post('/', requireTeacher, (req, res) => {
   }
 });
 
-router.put('/:id', requireTeacher, (req, res) => {
+router.put('/:id', requireTeacher, requireCanEdit, (req, res) => {
   try {
     const db = getDb();
     const id = Number(req.params.id);
@@ -259,7 +262,7 @@ router.put('/:id', requireTeacher, (req, res) => {
   }
 });
 
-router.post('/:id/status', requireTeacher, (req, res) => {
+router.post('/:id/status', requireTeacher, requireCanEdit, (req, res) => {
   try {
     const db = getDb();
     const id = Number(req.params.id);
@@ -302,7 +305,7 @@ router.delete('/:id', requireTeacher, (req, res) => {
 
 // ------------------------------------------------------------------ student
 
-router.post('/:id/book', requireStudent, (req, res) => {
+router.post('/:id/book', requireStudent, requireCanBook, (req, res) => {
   try {
     const db = getDb();
     const id = Number(req.params.id);

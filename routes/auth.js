@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
 const { getDb } = require('../database');
 const { t } = require('../i18n-server');
+const { sqliteToIso } = require('../lib/time');
 
 // Google OAuth Configuration
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
@@ -80,11 +81,25 @@ router.post('/login', (req, res) => {
             return res.status(401).json({ error: t(req, 'invalidCredentials') });
         }
 
+        // A banned account cannot sign in at all — the super admin must lift it.
+        if (user.status === 'banned') {
+            return res.status(403).json({
+                error: t(req, 'accountBanned'),
+                reason: user.ban_reason || ''
+            });
+        }
+
         req.session.userId = user.id;
         req.session.role = user.role;
         req.session.displayName = user.display_name;
 
-        res.json({ success: true, user: { id: user.id, displayName: user.display_name, role: user.role } });
+        res.json({
+            success: true,
+            user: {
+                id: user.id, displayName: user.display_name, role: user.role,
+                isAdmin: Number(user.is_admin) === 1
+            }
+        });
     } catch (err) {
         console.error('Login error:', err);
         res.status(500).json({ error: t(req, 'loginFailed') });
@@ -155,6 +170,10 @@ router.get('/google/callback', async (req, res) => {
         let user = db.prepare('SELECT * FROM users WHERE google_id = ? OR username = ?').get(googleId, email);
 
         if (user) {
+            if (user.status === 'banned') {
+                return res.redirect('/login.html?google_auth=error&message=' +
+                    encodeURIComponent('This account has been suspended. Please contact the administrator.'));
+            }
             // Update Google ID if not set
             if (!user.google_id) {
                 db.prepare('UPDATE users SET google_id = ? WHERE id = ?').run(googleId, user.id);
@@ -192,18 +211,35 @@ router.post('/logout', (req, res) => {
 
 // Get current user
 router.get('/me', (req, res) => {
-    if (req.session.userId) {
-        res.json({
-            loggedIn: true,
-            user: {
-                id: req.session.userId,
-                displayName: req.session.displayName,
-                role: req.session.role
-            }
-        });
-    } else {
-        res.json({ loggedIn: false });
+    if (!req.session.userId) return res.json({ loggedIn: false });
+    const db = getDb();
+    const user = db.prepare(
+        `SELECT id, display_name, role, is_admin, status, ban_reason,
+                muted_until, mute_reason, publish_blocked, publish_block_reason
+         FROM users WHERE id = ?`
+    ).get(req.session.userId);
+    if (!user) {
+        req.session.destroy(() => { });
+        return res.json({ loggedIn: false });
     }
+    if (user.status === 'banned') {
+        req.session.destroy(() => { });
+        return res.json({ loggedIn: false, banned: true, reason: user.ban_reason || '' });
+    }
+    const mutedUntil = user.muted_until ? sqliteToIso(user.muted_until) : null;
+    res.json({
+        loggedIn: true,
+        user: {
+            id: user.id,
+            displayName: user.display_name,
+            role: user.role,
+            isAdmin: Number(user.is_admin) === 1,
+            mutedUntil: mutedUntil && new Date(mutedUntil).getTime() > Date.now() ? mutedUntil : null,
+            muteReason: user.mute_reason || '',
+            publishBlocked: Number(user.publish_blocked) === 1,
+            publishBlockReason: user.publish_block_reason || ''
+        }
+    });
 });
 
 module.exports = router;

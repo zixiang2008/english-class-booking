@@ -153,7 +153,7 @@ async function main() {
   await test('GET /healthz reports v3', async () => {
     const r = await anon.get('/healthz');
     assert.strictEqual(r.status, 200);
-    assert.strictEqual(r.data.version, '3.0.0');
+    assert.match(r.data.version, /^3\.[01]\./);
   });
   for (const page of ['/', '/admin.html', '/login.html', '/register.html', '/calendar.html']) {
     await test(`static page ${page} returns 200 HTML`, async () => {
@@ -457,7 +457,7 @@ async function main() {
   });
   await test('/api/calendar/info reports v3 and public URLs', async () => {
     const r = await anon.get('/api/calendar/info');
-    assert.strictEqual(r.data.version, '3.0.0');
+    assert.match(r.data.version, /^3\.[01]\./);
     assert.ok(r.data.icsSubscriptionUrl.endsWith('/api/calendar/schedule.ics'));
   });
   await test('legacy weekly grid endpoint still serves 7×8 slots', async () => {

@@ -155,6 +155,9 @@ const App = {
     }
     const adminLink = document.getElementById('nav-admin-link');
     if (adminLink) adminLink.classList.toggle('hidden', !(App.user && App.user.role === 'teacher'));
+    // The super-admin console is only advertised to super administrators.
+    const superLink = document.getElementById('nav-superadmin-link');
+    if (superLink) superLink.classList.toggle('hidden', !(App.user && App.user.isAdmin));
   },
 
   async refreshAuth() {
@@ -203,11 +206,16 @@ const App = {
     });
   },
 
-  async boot({ onReady, onLangChange, requireTeacher = false } = {}) {
+  async boot({ onReady, onLangChange, requireTeacher = false, requireAdmin = false } = {}) {
     App._langCallback = onLangChange || null;
     App.applyStaticI18n();
     App.mountLanguageSwitcher();
     await App.refreshAuth();
+    if (requireAdmin && !(App.user && App.user.isAdmin)) {
+      App.toast(I18N.t('v3_saNoPermission') || 'Super admin permission required', 'error');
+      setTimeout(() => { window.location.href = App.user ? '/' : '/login.html'; }, 1200);
+      return;
+    }
     if (requireTeacher && !(App.user && App.user.role === 'teacher')) {
       App.toast(I18N.t('adminLoginRedirect') || 'Teacher login required', 'error');
       setTimeout(() => { window.location.href = '/login.html'; }, 1200);

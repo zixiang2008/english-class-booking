@@ -46,12 +46,13 @@ async function startServer() {
 
     app.use(express.static(path.join(__dirname, 'public'), { maxAge: 0 }));
 
-    app.get('/healthz', (req, res) => res.json({ ok: true, version: '3.0.0', time: new Date().toISOString() }));
+    app.get('/healthz', (req, res) => res.json({ ok: true, version: '3.1.0', time: new Date().toISOString() }));
 
     app.use('/api/auth', require('./routes/auth'));
     app.use('/api/schedule', require('./routes/schedule'));
     app.use('/api/courses', require('./routes/courses'));
     app.use('/api/admin', require('./routes/admin'));
+    app.use('/api/superadmin', require('./routes/superadmin'));
     app.use('/api/calendar', require('./routes/calendar'));
     app.use('/api/settings', require('./routes/settings'));
 
@@ -65,9 +66,10 @@ async function startServer() {
 
     const server = app.listen(PORT, () => {
         const host = process.env.SITE_URL || `http://localhost:${PORT}`;
-        console.log('\n🎓 English Class Booking System v3.0.0 is running!');
+        console.log('\n🎓 English Class Booking System v3.1.0 is running!');
         console.log(`   📖 Student / course board : ${host}/`);
         console.log(`   🔧 Teacher admin          : ${host}/admin.html`);
+        console.log(`   🛡️  Super admin console    : ${host}/superadmin.html`);
         console.log(`   🌐 Local domain           : ${process.env.SITE_URL || `http://localhost:${PORT}`}`);
         console.log('   👩‍🏫 Demo PIN: teacher / 1111 · teacher2 / 2345 · student / 1234\n');
     });

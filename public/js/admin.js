@@ -396,11 +396,30 @@ async function handleSaveSettings(ev) {
   );
 }
 
+// ---------------------------------------------------------------- restrictions
+/** Show why publishing/editing is blocked (set by a super admin). */
+function renderRestrictionNotice() {
+  const box = document.getElementById('restriction-banner');
+  if (!box) return;
+  const u = App.user || {};
+  const lines = [];
+  if (u.mutedUntil) {
+    lines.push(`🔇 ${I18N.t('v3_saMutedBanner', { date: App.fmtLocal(u.mutedUntil) })}${u.muteReason ? ` · ${u.muteReason}` : ''}`);
+  }
+  if (u.publishBlocked) {
+    lines.push(`🚫 ${I18N.t('v3_saPublishBlockedBanner')}${u.publishBlockReason ? ` · ${u.publishBlockReason}` : ''}`);
+  }
+  if (!lines.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  box.classList.remove('hidden');
+  box.innerHTML = lines.map(l => `<div>${App.esc(l)}</div>`).join('');
+}
+
 // ---------------------------------------------------------------- boot
 App.boot({
   requireTeacher: true,
   onReady: async () => {
     App.setActiveNav('admin');
+    renderRestrictionNotice();
     await loadConfig();
     await Promise.all([loadOverview(), loadMyCourses(), loadBookings(true), loadSlots(), loadStudents()]);
     clearInterval(refreshTimer);
@@ -412,6 +431,7 @@ App.boot({
     }, 15000);
   },
   onLangChange: () => {
+    renderRestrictionNotice();
     loadMyCourses();
     loadBookings(true);
     renderSlots();

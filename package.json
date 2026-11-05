@@ -1,6 +1,6 @@
 {
   "name": "english-class-booking",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "English Class Booking v3 - multi-teacher class board, notice board, Google Maps address bar, real timezones, live bookings (4-language i18n)",
   "main": "server.js",
   "scripts": {
@@ -13,7 +13,9 @@
     "user": "node scripts/create-user.js",
     "reset:data": "node scripts/reset-data.js",
     "check:i18n": "node scripts/check-i18n.js",
-    "check": "node scripts/check-i18n.js && node --check server.js && npm test"
+    "check": "node scripts/check-i18n.js && node --check server.js && npm test",
+    "admin": "node scripts/grant-admin.js",
+    "test:admin": "node tests/superadmin-suite.js"
   },
   "engines": {
     "node": ">=18.0.0"

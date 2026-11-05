@@ -172,13 +172,41 @@ async function initDatabase() {
       FOREIGN KEY (course_id) REFERENCES courses(id)
     );
 
+    CREATE TABLE IF NOT EXISTS admin_actions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      admin_id INTEGER NOT NULL,
+      admin_name TEXT NOT NULL DEFAULT '',
+      target_user_id INTEGER DEFAULT NULL,
+      target_name TEXT NOT NULL DEFAULT '',
+      target_course_id INTEGER DEFAULT NULL,
+      action TEXT NOT NULL,
+      detail TEXT NOT NULL DEFAULT '',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE INDEX IF NOT EXISTS idx_courses_teacher ON courses(teacher_id);
     CREATE INDEX IF NOT EXISTS idx_courses_start ON courses(start_utc);
     CREATE INDEX IF NOT EXISTS idx_bookings_course ON course_bookings(course_id);
+    CREATE INDEX IF NOT EXISTS idx_admin_actions_created ON admin_actions(created_at);
   `);
 
   // Backward-compatible migration for v1 databases.
   try { db.exec('ALTER TABLE users ADD COLUMN google_id TEXT DEFAULT NULL'); } catch (_) { /* exists */ }
+
+  // ---- v3.1 super-admin / moderation columns (idempotent) ----
+  const userColumns = [
+    ['is_admin', 'INTEGER NOT NULL DEFAULT 0'],
+    ['status', "TEXT NOT NULL DEFAULT 'active'"],
+    ['ban_reason', "TEXT NOT NULL DEFAULT ''"],
+    ['banned_at', 'DATETIME DEFAULT NULL'],
+    ['muted_until', 'DATETIME DEFAULT NULL'],
+    ['mute_reason', "TEXT NOT NULL DEFAULT ''"],
+    ['publish_blocked', 'INTEGER NOT NULL DEFAULT 0'],
+    ['publish_block_reason', "TEXT NOT NULL DEFAULT ''"]
+  ];
+  for (const [name, type] of userColumns) {
+    try { db.exec(`ALTER TABLE users ADD COLUMN ${name} ${type}`); } catch (_) { /* already migrated */ }
+  }
 
   // ---- Seed accounts (idempotent) ----
   // SEED_DEMO=0 keeps a production database clean: no demo teachers, no demo

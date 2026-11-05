@@ -1,6 +1,6 @@
-# English Class Booking v3
+# English Class Booking v3.1
 
-多老师英语课程预约系统：一个页面发布课程、通知栏、谷歌地址栏、真实时区时间、学生预约、老师实时看板、开课状态与更新记录。
+多老师英语课程预约系统：一个页面发布课程、通知栏、谷歌地址栏、真实时区时间、学生预约、老师实时看板、开课状态与更新记录，外加**超级管理员**的账号治理与课程审核。
 
 - Node.js 18+ / Express 4 / sql.js（SQLite）
 - 原生 HTML + CSS + JavaScript，无前端构建步骤
@@ -25,6 +25,9 @@
 | 更新记录 | 无 | revision + 变更日志，学生看到「有更新」和时间线 |
 | 日历 | 仅周表 ICS | 具体课程以真实 UTC 事件写入 ICS，并生成 Google Calendar 链接 |
 | 界面 | 桌面优先 | 重新设计的移动优先界面，手机单列卡片、底部抽屉弹窗 |
+| 账号治理 | 无 | v3.1 超级管理员：封禁 / 禁言 / 禁止发布 / 重置 PIN / 删除账号 |
+| 课程审核 | 无 | v3.1 课程审核：任意课程可下架与恢复，学生同步看到原因 |
+| 管理留痕 | 无 | v3.1 操作日志：每条管理动作记录执行人、对象、原因与时间 |
 
 ---
 
@@ -53,7 +56,22 @@
 - 课程详情：完整信息、更新历史、老师可见的预约学生
 - 周课表视图：保留旧的循环时间表
 
-### 2.3 通用
+### 2.3 超级管理员端（`/superadmin.html`，仅 `is_admin` 可见）
+
+- 概览：账号总数 / 老师 / 学生 / 超管 / 已封禁 / 已禁言 / 课程 / 预约
+- 账号管理：搜索（姓名、用户名、电话）、按角色与限制状态筛选
+- 对任意老师或学生执行：
+  - **封禁账号**：立即无法登录，已登录会话下一次请求即失效
+  - **禁言**：1 小时 / 24 小时 / 7 天 / 30 天 / 永久，期间不能发布或修改课程，学生不能预约
+  - **禁止发布课程**：只能编辑已有课程，不能新建
+  - **解除**以上全部限制
+  - **设为 / 取消超级管理员**、**重置 4 位 PIN**、**删除账号**（级联清理其课程与预约）
+- 课程审核：搜索全部课程，**下架**（转为已取消并写入更新记录，学生可见原因）与**恢复**
+- 操作日志：执行人、动作、对象、原因、时间
+- 自我保护：不能封禁/删除/降权自己；超管之间不能互相限制；系统必须保留至少一名超管
+- 被限制的老师登录教师工作台后，页面顶部会显示黄色横幅说明原因与到期时间
+
+### 2.4 通用
 
 - 四语言切换，服务端 API 错误也会按 `X-Language` 返回对应语言
 - 登录 / 注册：4 位数字 PIN，老师可用邀请码注册
@@ -86,9 +104,11 @@ npm start
 
 | 角色 | 用户名 | PIN | 说明 |
 | --- | --- | --- | --- |
-| 管理员 / 老师 | `elvis` | `1314` | 站点所有者，可发布课程、管理预约与站点设置 |
+| **超级管理员** / 老师 | `elvis` | `1314` | 系统最高权限：管理所有账号、封禁/禁言/限制发布、审核课程、查看操作日志 |
 | 老师 | `hamish` | `1234` | 真实老师账号，尚未发布课程 |
 | 老师 | `kevin` | `1234` | 真实老师账号，尚未发布课程 |
+
+> 超级管理员权限通过 `is_admin` 标记，与角色（老师/学生）解耦：`elvis` 既是老师也是超管，因此仍可正常发布课程。
 
 **演示账号（历史数据用，可真实登录）**
 
@@ -111,6 +131,14 @@ node scripts/create-user.js kevin 1234 teacher Kevin
 ```
 
 > `scripts/create-user.js` 也可以用来重置任意账号的 PIN，或把学生升级为老师。
+
+授予 / 取消超级管理员（或列出全部超管）：
+
+```bash
+node scripts/grant-admin.js elvis          # 授予
+node scripts/grant-admin.js elvis --revoke # 取消（系统会拒绝移除最后一名超管）
+node scripts/grant-admin.js --list         # 查看
+```
 
 重新生成演示历史（会先删除这 3 位测试老师名下的旧课程）：
 
@@ -158,11 +186,13 @@ english-class-booking/
 │   ├── auth.js               注册、登录、登出、Google OAuth
 │   ├── courses.js            课程 CRUD、状态、预约、更新历史
 │   ├── admin.js              工作台概览、实时预约、周表、学生
+│   ├── superadmin.js         超级管理员：账号治理、课程审核、操作日志
 │   ├── calendar.js           ICS 订阅、公开 JSON
 │   └── schedule.js           旧版循环周表接口
 ├── public/
 │   ├── index.html            学生课程广场
 │   ├── admin.html            老师工作台
+│   ├── superadmin.html       超级管理员控制台
 │   ├── login.html            登录
 │   ├── register.html         注册（含老师邀请码）
 │   ├── calendar.html         日历订阅
@@ -173,15 +203,20 @@ english-class-booking/
 │       ├── common.js         共享 App 层：请求、toast、弹窗、导航、时间格式化
 │       ├── schedule.js       学生端逻辑
 │       ├── admin.js          老师端逻辑
+│       ├── superadmin.js     超管台逻辑
 │       └── auth.js           登录/注册逻辑
 ├── scripts/
 │   ├── check-i18n.js         i18n 静态审计
 │   ├── create-user.js        创建 / 重置账号
+│   ├── grant-admin.js        授予 / 取消超级管理员
 │   ├── reset-data.js         清空业务数据（保留管理员与站点设置）
 │   ├── seed-demo-history.js  生成过去两周的模拟课堂与选课记录
 │   ├── visual-audit.js       多视口视觉审计（溢出 / 列数 / 触控尺寸 / 截图）
 │   └── ui-smoke.js           Chrome DevTools Protocol 真实浏览器冒烟测试
-└── tests/test-suite.js       接口 + 单元集成测试（自启动、隔离数据库）
+├── tests/
+│   ├── test-suite.js         接口 + 单元集成测试（自启动、隔离数据库）
+│   ├── e2e-full.js           多角色验收
+│   └── superadmin-suite.js   超管权限 / 限制 / 审核 / 日志验收
 ```
 
 ---
@@ -189,7 +224,9 @@ english-class-booking/
 ## 7. 数据模型
 
 ```sql
-users            id, username, password_hash, display_name, phone, role, google_id
+users            id, username, password_hash, display_name, phone, role, google_id,
+                 is_admin, status, ban_reason, banned_at,
+                 muted_until, mute_reason, publish_blocked, publish_block_reason
 schedule         id, day_of_week, time_slot, status, booked_by, booked_name   -- v2 周表
 courses          id, teacher_id, title, notice, notice_updated_at,
                  timezone, lesson_date, start_time, end_time, start_utc, end_utc,
@@ -197,6 +234,8 @@ courses          id, teacher_id, title, notice, notice_updated_at,
                  revision, created_at, updated_at
 course_bookings  id, course_id, student_id, status, created_at, cancelled_at
 course_updates   id, course_id, teacher_id, change_type, summary, created_at
+admin_actions    id, admin_id, admin_name, target_user_id, target_name,
+                 target_course_id, action, detail, created_at   -- v3.1 操作日志
 ```
 
 关键设计：
@@ -205,6 +244,8 @@ course_updates   id, course_id, teacher_id, change_type, summary, created_at
 - `start_utc` / `end_utc` 是服务端换算出的真实 UTC 时刻，所有排序、ICS、日历链接都基于它；
 - `run_status` 决定学生能否预约；
 - `revision` 大于 1 时前端显示「有更新」；
+- `is_admin` 独立于 `role`，是系统最高权限标记；`status='banned'` 阻止登录，
+  `muted_until` 阻止一切发布行为，`publish_blocked` 只阻止新建课程；
 - 数据库时间戳在返回前统一规范化为 ISO-8601 UTC（SQLite 的 `CURRENT_TIMESTAMP` 不带时区标记，浏览器会误判为本地时间）。
 
 ---
@@ -252,6 +293,24 @@ course_updates   id, course_id, teacher_id, change_type, summary, created_at
 | POST | `/api/admin/remove-booking` | 释放时段 |
 | GET | `/api/admin/students` | 学生列表 |
 
+### 超级管理员（全部需要 `is_admin`）
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/superadmin/overview` | 账号 / 课程 / 预约统计与最近操作 |
+| GET | `/api/superadmin/users` | 全部账号，支持 `q`、`role`、`filter=banned|muted|blocked|admin` |
+| POST | `/api/superadmin/users/:id/ban` | 封禁（需 `reason`） |
+| POST | `/api/superadmin/users/:id/unban` | 解封 |
+| POST | `/api/superadmin/users/:id/mute` | `{ hours, reason }`，`-1` 永久，`0` 解除 |
+| POST | `/api/superadmin/users/:id/publish-block` | `{ blocked, reason }` |
+| POST | `/api/superadmin/users/:id/admin` | `{ isAdmin }` 授予 / 取消超管 |
+| POST | `/api/superadmin/users/:id/pin` | 重置 4 位 PIN |
+| DELETE | `/api/superadmin/users/:id` | 删除账号并级联清理 |
+| GET | `/api/superadmin/courses` | 全部课程（审核用），支持 `q`、`status`、`teacher` |
+| POST | `/api/superadmin/courses/:id/takedown` | 下架（需 `reason`） |
+| POST | `/api/superadmin/courses/:id/restore` | 恢复 |
+| GET | `/api/superadmin/actions` | 操作日志 |
+
 ### 日历
 
 | 方法 | 路径 | 说明 |
@@ -264,7 +323,7 @@ course_updates   id, course_id, teacher_id, change_type, summary, created_at
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/healthz` | `{ ok: true, version: "3.0.0" }` |
+| GET | `/healthz` | `{ ok: true, version: "3.1.0" }` |
 
 ---
 
@@ -273,6 +332,7 @@ course_updates   id, course_id, teacher_id, change_type, summary, created_at
 ```bash
 npm test              # 65 项：接口契约回归（自启动、隔离数据库）
 npm run test:e2e      # 54 项：多老师 / 多学生完整业务旅程与边界验收
+npm run test:admin    # 35 项：超管权限、封禁/禁言/限制发布、提权、审核、日志、级联删除
 npm run check:i18n    # 校验所有被引用的词条在四种语言中都存在
 npm run test:ui       # 37 项真实浏览器冒烟（需先启动服务）
 npm run test:visual   # 25 项多视口视觉审计（需先启动服务）

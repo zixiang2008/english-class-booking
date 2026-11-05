@@ -203,6 +203,7 @@ const I18N = {
       pageTitleLogin: 'Login - English Class Booking',
       pageTitleRegister: 'Register - English Class Booking',
       pageTitleAdmin: 'Teacher Admin - English Class Booking',
+      pageTitleSuperAdmin: 'Super Admin - English Class Booking',
 
       // Meta descriptions
       metaDescSchedule: 'English Class Schedule - Book your English lessons online. View available time slots and reserve your class today.',
@@ -380,6 +381,7 @@ const I18N = {
       pageTitleLogin: '登录 - 英语约课系统',
       pageTitleRegister: '注册 - 英语约课系统',
       pageTitleAdmin: '教师管理 - 英语约课系统',
+      pageTitleSuperAdmin: '超级管理员 - 英语约课系统',
       metaDescSchedule: '英语课程表 - 在线预约英语课程，查看可用时间段。',
       metaDescLogin: '登录英语约课系统',
       metaDescRegister: '注册英语约课系统',
@@ -553,6 +555,7 @@ const I18N = {
       pageTitleLogin: 'เข้าสู่ระบบ - จองคลาสภาษาอังกฤษ',
       pageTitleRegister: 'ลงทะเบียน - จองคลาสภาษาอังกฤษ',
       pageTitleAdmin: 'ครูผู้สอน - จองคลาสภาษาอังกฤษ',
+      pageTitleSuperAdmin: 'ผู้ดูแลสูงสุด - จองคลาสภาษาอังกฤษ',
       metaDescSchedule: 'ตารางเรียนภาษาอังกฤษ - จองคลาสเรียนออนไลน์',
       metaDescLogin: 'เข้าสู่ระบบจองคลาสเรียนภาษาอังกฤษ',
       metaDescRegister: 'ลงทะเบียนระบบจองคลาสเรียนภาษาอังกฤษ',
@@ -726,6 +729,7 @@ const I18N = {
       pageTitleLogin: 'ログイン - 英語レッスン予約',
       pageTitleRegister: '新規登録 - 英語レッスン予約',
       pageTitleAdmin: '講師管理 - 英語レッスン予約',
+      pageTitleSuperAdmin: '最高管理者 - 英語レッスン予約',
       metaDescSchedule: '英語レッスンスケジュール - オンラインで予約',
       metaDescLogin: '英語レッスン予約システムにログイン',
       metaDescRegister: '英語レッスン予約システムに登録',

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#3f2fbf">
+  <meta name="description" content="Super admin console — manage every teacher and student account, apply restrictions and moderate classes.">
+  <title data-i18n="pageTitleSuperAdmin">Super Admin - English Class Booking</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">EC</span>
+        <span class="brand-text"><strong data-i18n="appName">📖 English Class</strong><small data-i18n="v3_brandTag">Multi-teacher class board</small></span>
+      </a>
+      <div class="nav-links" id="main-links">
+        <a class="nav-link" data-nav="board" href="/" data-i18n="v3_navBoard">Classes</a>
+        <a class="nav-link" data-nav="calendar" href="/calendar.html" data-i18n="v3_navCalendar">Calendar</a>
+        <a class="nav-link" data-nav="admin" id="nav-admin-link" href="/admin.html" data-i18n="v3_navAdmin">Teacher studio</a>
+        <a class="nav-link active" data-nav="superadmin" id="nav-superadmin-link" href="/superadmin.html" data-i18n="v3_navSuperAdmin">Super admin</a>
+      </div>
+      <div class="topbar-right">
+        <div id="nav-lang"></div>
+        <div id="nav-right"></div>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero hero-super">
+    <div class="hero-inner" style="padding-top:28px;padding-bottom:26px">
+      <span class="eyebrow" data-i18n="v3_saEyebrow">HIGHEST PRIVILEGE</span>
+      <h1 data-i18n="v3_saTitle">Super admin console</h1>
+      <p class="hero-desc" data-i18n="v3_saDesc">Manage every teacher and student account, apply restrictions, review classes and keep an audit trail.</p>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="wrap">
+      <div class="admin-tabs" id="admin-tabs">
+        <button class="admin-tab active" type="button" data-tab="overview" onclick="saSwitchTab('overview')" data-i18n="v3_saTabOverview">📊 Overview</button>
+        <button class="admin-tab" type="button" data-tab="users" onclick="saSwitchTab('users')" data-i18n="v3_saTabUsers">👥 Accounts</button>
+        <button class="admin-tab" type="button" data-tab="courses" onclick="saSwitchTab('courses')" data-i18n="v3_saTabCourses">🔎 Class review</button>
+        <button class="admin-tab" type="button" data-tab="log" onclick="saSwitchTab('log')" data-i18n="v3_saTabLog">🧾 Audit log</button>
+      </div>
+
+      <!-- Overview -->
+      <section id="sa-panel-overview" class="admin-panel">
+        <div class="section-head"><div><h2 data-i18n="v3_saOvTitle">System at a glance</h2></div><span class="live-dot" data-i18n="v3_live">Live</span></div>
+        <div class="stat-grid" id="sa-stats">
+          <div class="stat-card tint-purple"><div class="label" data-i18n="v3_saStatUsers">Accounts</div><div class="value" id="sa-stat-users">–</div></div>
+          <div class="stat-card tint-teal"><div class="label" data-i18n="v3_saStatTeachers">Teachers</div><div class="value" id="sa-stat-teachers">–</div></div>
+          <div class="stat-card"><div class="label" data-i18n="v3_saStatStudents">Students</div><div class="value" id="sa-stat-students">–</div></div>
+          <div class="stat-card"><div class="label" data-i18n="v3_saStatAdmins">Super admins</div><div class="value" id="sa-stat-admins">–</div></div>
+          <div class="stat-card tint-red"><div class="label" data-i18n="v3_saStatBanned">Suspended</div><div class="value" id="sa-stat-banned">–</div></div>
+          <div class="stat-card tint-amber"><div class="label" data-i18n="v3_saStatMuted">Muted</div><div class="value" id="sa-stat-muted">–</div></div>
+          <div class="stat-card tint-green"><div class="label" data-i18n="v3_saStatCourses">Classes</div><div class="value" id="sa-stat-courses">–</div></div>
+          <div class="stat-card"><div class="label" data-i18n="v3_saStatBookings">Bookings</div><div class="value" id="sa-stat-bookings">–</div></div>
+        </div>
+        <div class="panel" style="margin-top:18px">
+          <div class="panel-head"><h3 data-i18n="v3_saRecentActions">Recent moderation</h3>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="saSwitchTab('log')" data-i18n="v3_saTabLog">🧾 Audit log</button></div>
+          <div id="sa-overview-actions" class="loading"><div class="spinner"></div></div>
+        </div>
+      </section>
+
+      <!-- Accounts -->
+      <section id="sa-panel-users" class="admin-panel hidden">
+        <div class="section-head">
+          <div><h2 data-i18n="v3_saUsersTitle">All accounts</h2><p data-i18n="v3_saUsersDesc">Suspend, mute or restrict any teacher or student. Changes apply on their next request.</p></div>
+          <button class="btn btn-ghost btn-sm" type="button" onclick="saLoadUsers()" data-i18n="v3_refresh">Refresh now</button>
+        </div>
+        <div class="panel">
+          <div class="filters">
+            <div class="search-box"><input id="sa-user-search" type="search" data-i18n-placeholder="v3_saSearchUsers" placeholder="Search name, username or phone…" oninput="saLoadUsers()"></div>
+            <select id="sa-user-role" onchange="saLoadUsers()">
+              <option value="" data-i18n="v3_saFilterAll">All roles</option>
+              <option value="teacher" data-i18n="v3_saFilterTeachers">Teachers</option>
+              <option value="student" data-i18n="v3_saFilterStudents">Students</option>
+            </select>
+            <select id="sa-user-filter" onchange="saLoadUsers()">
+              <option value="" data-i18n="v3_saFilterAny">Any status</option>
+              <option value="admin" data-i18n="v3_saFilterAdmins">Super admins</option>
+              <option value="banned" data-i18n="v3_saFilterBanned">Suspended</option>
+              <option value="muted" data-i18n="v3_saFilterMuted">Muted</option>
+              <option value="blocked" data-i18n="v3_saFilterBlocked">Publishing blocked</option>
+            </select>
+          </div>
+          <div id="sa-user-list" class="loading"><div class="spinner"></div></div>
+        </div>
+      </section>
+
+      <!-- Class review -->
+      <section id="sa-panel-courses" class="admin-panel hidden">
+        <div class="section-head">
+          <div><h2 data-i18n="v3_saCoursesTitle">Class review</h2><p data-i18n="v3_saCoursesDesc">Inspect every published class and take down anything that breaks the rules.</p></div>
+          <button class="btn btn-ghost btn-sm" type="button" onclick="saLoadCourses()" data-i18n="v3_refresh">Refresh now</button>
+        </div>
+        <div class="panel">
+          <div class="filters">
+            <div class="search-box"><input id="sa-course-search" type="search" data-i18n-placeholder="v3_saSearchCourses" placeholder="Search class, teacher or place…" oninput="saLoadCourses()"></div>
+            <select id="sa-course-status" onchange="saLoadCourses()">
+              <option value="" data-i18n="v3_saFilterAnyStatus">Any status</option>
+              <option value="confirmed" data-i18n="v3_statusConfirmed">Will run</option>
+              <option value="pending" data-i18n="v3_statusPending">Tentative</option>
+              <option value="cancelled" data-i18n="v3_statusCancelled">Cancelled</option>
+              <option value="completed" data-i18n="v3_statusCompleted">Finished</option>
+            </select>
+          </div>
+          <div id="sa-course-list" class="loading"><div class="spinner"></div></div>
+        </div>
+      </section>
+
+      <!-- Audit log -->
+      <section id="sa-panel-log" class="admin-panel hidden">
+        <div class="section-head">
+          <div><h2 data-i18n="v3_saLogTitle">Audit log</h2><p data-i18n="v3_saLogDesc">Every moderation action is recorded with the administrator who performed it.</p></div>
+          <button class="btn btn-ghost btn-sm" type="button" onclick="saLoadLog()" data-i18n="v3_refresh">Refresh now</button>
+        </div>
+        <div class="panel"><div id="sa-log-list" class="loading"><div class="spinner"></div></div></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span><strong data-i18n="v3_navSuperAdmin">Super admin</strong></span>
+      <span data-i18n="footerAdminSub">English Class Booking System</span>
+      <span data-i18n="v3_footerMade">Built for teachers and students · v3.0</span>
+    </div>
+  </footer>
+
+  <script src="/js/i18n.js"></script>
+  <script src="/js/i18n-v3.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/superadmin.js"></script>
+</body>
+</html>
