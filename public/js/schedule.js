@@ -335,23 +335,32 @@ async function cancelSlot(id) {
 });
 
 /** Site settings (v2.1): title + footer contact, editable in the teacher studio. */
+function renderFooterContact(data) {
+  const box = document.getElementById('footer-contact');
+  if (!box) return;
+  const esc = App.esc;
+  const phone = String(data.site_phone || '').trim();
+  const email = String(data.site_email || '').trim();
+  const line = String(data.site_line_url || '').trim();
+  const parts = [];
+  if (phone) {
+    parts.push(`<a href="tel:${esc(phone.replace(/[^\d+]/g, ''))}" id="footer-phone-link">${esc(phone)}</a>`);
+  }
+  if (email) {
+    parts.push(`<a href="mailto:${esc(email)}" id="footer-email-link">${esc(email)}</a>`);
+  }
+  if (line) {
+    parts.push(`<a href="${esc(line)}" id="footer-line-link" target="_blank" rel="noopener noreferrer">LINE</a>`);
+  }
+  box.innerHTML = parts.join(' <span class="sep">·</span> ');
+}
+
 async function loadSiteSettings() {
   try {
     const { res, data } = await App.get('/api/settings');
     if (!res.ok || !data) return;
     if (data.site_title) document.title = data.site_title;
-    const phone = document.getElementById('footer-phone-link');
-    if (phone && data.site_phone) {
-      phone.textContent = data.site_phone;
-      phone.href = 'tel:' + String(data.site_phone).replace(/\s+/g, '');
-    }
-    const email = document.getElementById('footer-email-link');
-    if (email && data.site_email) {
-      email.textContent = data.site_email;
-      email.href = 'mailto:' + data.site_email;
-    }
-    const line = document.getElementById('footer-line-link');
-    if (line && data.site_line_url) line.href = data.site_line_url;
+    renderFooterContact(data);
   } catch (_) { /* settings are optional */ }
 }
 

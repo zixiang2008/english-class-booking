@@ -224,7 +224,9 @@ async function main() {
   await test('public settings expose site title and contact details', async () => {
     const r = await anon.get('/api/settings');
     assert.strictEqual(r.status, 200);
-    assert.ok(r.data.site_title && r.data.site_phone && r.data.site_email, JSON.stringify(r.data));
+    assert.ok(r.data.site_title && r.data.site_email, JSON.stringify(r.data));
+    // Phone is optional: an empty value must be allowed and must not break the API.
+    assert.strictEqual(typeof r.data.site_phone, 'string');
   });
   await test('students cannot update site settings', async () => {
     const r = await student.put('/api/settings', { site_title: 'Nope' });

@@ -164,7 +164,13 @@ async function main() {
     bookButtons: document.querySelectorAll('[onclick*="bookCourse"], [onclick*="openCourseDetail"]').length,
     teachers: [...new Set([...document.querySelectorAll('.teacher-chip')].map(e => e.textContent.trim()))].length,
     title: document.title,
-    lang: document.documentElement.lang
+    lang: document.documentElement.lang,
+    footer: {
+      text: ((document.getElementById('footer-contact') || {}).textContent || '').replace(/\\s+/g, ' ').trim(),
+      email: ((document.getElementById('footer-email-link') || {}).textContent || '').trim(),
+      hasPhone: !!document.getElementById('footer-phone-link'),
+      hasLine: !!document.getElementById('footer-line-link')
+    }
   }))()`);
   check('student board renders published classes', board.cards >= 4, JSON.stringify(board));
   check('every class shows a notice board', board.notices >= board.cards);
@@ -173,6 +179,10 @@ async function main() {
   check('timezone pills show real GMT offsets', board.tzPills >= board.cards);
   check('multiple teachers appear on the same page', board.teachers >= 2);
   check('page title and html lang are set', !!board.title && !!board.lang);
+  check('footer shows the configured email and LINE link',
+    !!board.footer.email.includes('@') && board.footer.hasLine, JSON.stringify(board.footer));
+  check('footer hides an empty phone and never shows the legacy number',
+    !board.footer.hasPhone && !board.footer.text.includes('0637592741'), JSON.stringify(board.footer));
   const desktopShot = await screenshot('01-board-desktop');
 
   // language switching
@@ -254,7 +264,8 @@ async function main() {
     line: (document.getElementById('setting-line') || {}).value || ''
   }))()`);
   check('site settings tab loads saved contact details',
-    siteSettings.visible && !!siteSettings.phone && !!siteSettings.email,
+    siteSettings.visible && !!siteSettings.title && !!siteSettings.email &&
+    typeof siteSettings.phone === 'string',
     JSON.stringify(siteSettings));
 
   // ---------------------------------------------------------------- calendar page

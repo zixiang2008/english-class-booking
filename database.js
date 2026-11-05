@@ -301,8 +301,8 @@ async function initDatabase() {
     );
   `);
   const defaultSettings = {
-    site_phone: '0637592741',
-    site_email: 'chen.guanglei.elvis@gmail.com',
+    site_phone: '',
+    site_email: 'zixiang2008@gmail.com',
     site_title: "财神'S Class",
     site_line_url: 'https://line.me/ti/p/LJq8xrH-HU'
   };

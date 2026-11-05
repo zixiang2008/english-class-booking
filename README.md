@@ -84,11 +84,23 @@ npm start
 
 | 角色 | 用户名 | PIN | 说明 |
 | --- | --- | --- | --- |
+| 管理员 / 老师 | `elvis` | `1314` | 站点所有者账号，可发布课程、管理预约与站点设置 |
 | 老师 | `teacher` | `1111` | 示例课程 2 门 |
 | 老师 | `teacher2` | `2345` | 示例课程 2 门 |
 | 学生 | `student` | `1234` | 用于预约测试 |
 
 > 从 v2 升级的旧数据库会自动把 `teacher` 的旧密码迁移为 `1111`。
+> `elvis` 不会在全新数据库中自动创建（避免默认管理员弱口令），可用注册页 + 邀请码，或下面的命令创建 / 重置：
+
+```bash
+# 先停止正在运行的服务，执行完再启动
+node scripts/create-user.js elvis 1314 teacher Elvis
+node scripts/create-user.js student 1234 student "Demo Student"
+```
+
+> `scripts/create-user.js` 也可以用来重置任意账号的 PIN，或把学生升级为老师。
+
+**站点设置**：老师工作台 →「站点设置」可修改站点标题、电话、邮箱、LINE 链接。这些值同时驱动公开页页脚；**电话留空即从页脚隐藏**，不会显示空链接。
 
 老师注册邀请码：`TEACHER2026`（通过 `TEACHER_INVITE_CODE` 环境变量修改）。
 
