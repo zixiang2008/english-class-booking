@@ -2,14 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { getDb, TIME_SLOTS, DAYS } = require('../database');
 const { t } = require('../i18n-server');
-
-// Middleware: check if user is teacher
-function requireTeacher(req, res, next) {
-    if (!req.session.userId || req.session.role !== 'teacher') {
-        return res.status(403).json({ error: t(req, 'teacherRequired') });
-    }
-    next();
-}
+const { requireTeacher } = require('../lib/guards');
+const { sqliteToIso } = require('../lib/time');
 
 // Get all schedule with booking details
 router.get('/schedule', requireTeacher, (req, res) => {
@@ -97,6 +91,7 @@ router.get('/students', requireTeacher, (req, res) => {
 
         const result = students.map(s => ({
             ...s,
+            created_at: sqliteToIso(s.created_at),
             bookingCount: countMap[s.id] || 0
         }));
 
@@ -104,6 +99,53 @@ router.get('/students', requireTeacher, (req, res) => {
     } catch (err) {
         console.error('Get students error:', err);
         res.status(500).json({ error: t(req, 'studentsFailed') });
+    }
+});
+
+// ------------------------------------------------------------------ v3 dashboard
+
+/** Live booking feed for the logged-in teacher (newest first). */
+router.get('/bookings', requireTeacher, (req, res) => {
+    try {
+        const db = getDb();
+        const bookings = db.prepare(`
+            SELECT b.id AS booking_id, b.status AS booking_status, b.created_at AS booked_at,
+                   u.display_name AS student_name, u.username AS student_username, u.phone AS student_phone,
+                   c.id AS course_id, c.title AS course_title, c.lesson_date, c.start_time,
+                   c.end_time, c.timezone, c.start_utc, c.place_name, c.run_status
+            FROM course_bookings b
+            JOIN courses c ON c.id = b.course_id
+            JOIN users u ON u.id = b.student_id
+            WHERE c.teacher_id = ? AND b.status = 'booked'
+            ORDER BY b.id DESC LIMIT 200
+        `).all(req.session.userId).map(b => ({ ...b, booked_at: sqliteToIso(b.booked_at) }));
+        res.json({ bookings, serverTime: new Date().toISOString() });
+    } catch (err) {
+        console.error('Admin bookings error:', err);
+        res.status(500).json({ error: t(req, 'bookingsFailed') });
+    }
+});
+
+/** Numbers for the teacher dashboard cards. */
+router.get('/overview', requireTeacher, (req, res) => {
+    try {
+        const db = getDb();
+        const uid = req.session.userId;
+        const courses = db.prepare('SELECT COUNT(*) AS n FROM courses WHERE teacher_id = ?').get(uid).n;
+        const confirmed = db.prepare("SELECT COUNT(*) AS n FROM courses WHERE teacher_id = ? AND run_status = 'confirmed'").get(uid).n;
+        const pending = db.prepare("SELECT COUNT(*) AS n FROM courses WHERE teacher_id = ? AND run_status = 'pending'").get(uid).n;
+        const bookings = db.prepare(`
+            SELECT COUNT(*) AS n FROM course_bookings b JOIN courses c ON c.id = b.course_id
+            WHERE c.teacher_id = ? AND b.status = 'booked'
+        `).get(uid).n;
+        const students = db.prepare(`
+            SELECT COUNT(DISTINCT b.student_id) AS n FROM course_bookings b JOIN courses c ON c.id = b.course_id
+            WHERE c.teacher_id = ? AND b.status = 'booked'
+        `).get(uid).n;
+        const teachers = db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'teacher'").get().n;
+        res.json({ courses, confirmed, pending, bookings, students, teachers });
+    } catch (err) {
+        res.status(500).json({ error: t(req, 'bookingsFailed') });
     }
 });
 

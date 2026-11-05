@@ -1,423 +1,361 @@
-// ============================
-// Schedule.js - Main Page Logic (i18n-enabled)
-// ============================
+/**
+ * schedule.js — student course board + legacy weekly grid (v3)
+ */
+let coursesData = [];
+let teachersData = [];
+let weeklyData = null;
+let weekOffset = 0;
+let activeView = 'board';
+let refreshTimer = null;
 
-let currentUser = null;
-let scheduleData = null;
-let currentWeekOffset = 0;
-
-// ============================
-// Thailand Public Holidays 2026
-// ============================
-const THAI_HOLIDAYS_2026 = [
-    { month: 1, day: 1, name: "New Year's Day", nameTh: "วันขึ้นปีใหม่", emoji: "🎉" },
-    { month: 1, day: 2, name: "New Year Special Holiday", nameTh: "วันหยุดพิเศษปีใหม่", emoji: "🎊" },
-    { month: 2, day: 17, name: "Chinese New Year", nameTh: "วันตรุษจีน", emoji: "🧧" },
-    { month: 3, day: 3, name: "Makha Bucha Day", nameTh: "วันมาฆบูชา", emoji: "🕯️" },
-    { month: 4, day: 6, name: "Chakri Memorial Day", nameTh: "วันจักรี", emoji: "👑" },
-    { month: 4, day: 13, name: "Songkran Festival", nameTh: "วันสงกรานต์", emoji: "💦" },
-    { month: 4, day: 14, name: "Songkran Festival", nameTh: "วันสงกรานต์", emoji: "💦" },
-    { month: 4, day: 15, name: "Songkran Festival", nameTh: "วันสงกรานต์", emoji: "💦" },
-    { month: 5, day: 1, name: "National Labour Day", nameTh: "วันแรงงานแห่งชาติ", emoji: "⚒️" },
-    { month: 5, day: 4, name: "Coronation Day", nameTh: "วันฉัตรมงคล", emoji: "👑" },
-    { month: 5, day: 11, name: "Royal Ploughing Ceremony", nameTh: "วันพืชมงคล", emoji: "🌾" },
-    { month: 5, day: 31, name: "Visakha Bucha Day", nameTh: "วันวิสาขบูชา", emoji: "🪷" },
-    { month: 6, day: 1, name: "Substitution for Visakha Bucha", nameTh: "ชดเชยวันวิสาขบูชา", emoji: "🪷" },
-    { month: 6, day: 3, name: "Queen Suthida's Birthday", nameTh: "วันเฉลิมพระชนมพรรษา สมเด็จพระราชินี", emoji: "👸" },
-    { month: 7, day: 28, name: "King's Birthday", nameTh: "วันเฉลิมพระชนมพรรษา ร.10", emoji: "🤴" },
-    { month: 7, day: 29, name: "Asanha Bucha Day", nameTh: "วันอาสาฬหบูชา", emoji: "🕯️" },
-    { month: 7, day: 30, name: "Buddhist Lent Day", nameTh: "วันเข้าพรรษา", emoji: "🙏" },
-    { month: 8, day: 12, name: "Queen Mother's Birthday / Mother's Day", nameTh: "วันแม่แห่งชาติ", emoji: "💐" },
-    { month: 10, day: 13, name: "King Bhumibol Memorial Day", nameTh: "วันคล้ายวันสวรรคต ร.9", emoji: "🖤" },
-    { month: 10, day: 23, name: "Chulalongkorn Day", nameTh: "วันปิยมหาราช", emoji: "👑" },
-    { month: 12, day: 5, name: "Father's Day / King Bhumibol's Birthday", nameTh: "วันพ่อแห่งชาติ", emoji: "💛" },
-    { month: 12, day: 7, name: "Substitution for Father's Day", nameTh: "ชดเชยวันพ่อแห่งชาติ", emoji: "💛" },
-    { month: 12, day: 10, name: "Constitution Day", nameTh: "วันรัฐธรรมนูญ", emoji: "📜" },
-    { month: 12, day: 25, name: "Christmas Day", nameTh: "วันคริสต์มาส", emoji: "🎄" },
-    { month: 12, day: 31, name: "New Year's Eve", nameTh: "วันสิ้นปี", emoji: "🎆" },
+const THAI_HOLIDAYS = [
+  [1, 1, '🎉', "New Year's Day"], [1, 2, '🎊', 'New Year Holiday'], [2, 17, '🧧', 'Chinese New Year'],
+  [3, 3, '🕯️', 'Makha Bucha'], [4, 6, '👑', 'Chakri Day'], [4, 13, '💦', 'Songkran'],
+  [4, 14, '💦', 'Songkran'], [4, 15, '💦', 'Songkran'], [5, 1, '⚒️', 'Labour Day'],
+  [5, 4, '👑', 'Coronation Day'], [5, 11, '🌾', 'Royal Ploughing'], [5, 31, '🪷', 'Visakha Bucha'],
+  [6, 1, '🪷', 'Visakha Substitution'], [6, 3, '👸', "Queen's Birthday"], [7, 28, '🤴', "King's Birthday"],
+  [7, 29, '🕯️', 'Asanha Bucha'], [7, 30, '🙏', 'Buddhist Lent'], [8, 12, '💐', "Mother's Day"],
+  [10, 13, '🖤', 'Memorial Day'], [10, 23, '👑', 'Chulalongkorn Day'], [12, 5, '💛', "Father's Day"],
+  [12, 7, '💛', 'Substitution'], [12, 10, '📜', 'Constitution Day'], [12, 25, '🎄', 'Christmas'],
+  [12, 31, '🎆', 'New Year Eve']
 ];
+const holidayMap = new Map(THAI_HOLIDAYS.map(h => [`${h[0]}-${h[1]}`, h]));
+const getHoliday = d => holidayMap.get(`${d.getMonth() + 1}-${d.getDate()}`);
 
-function buildHolidayMap() {
-    const map = {};
-    for (const h of THAI_HOLIDAYS_2026) {
-        const key = `${h.month}-${h.day}`;
-        map[key] = h;
-    }
-    return map;
-}
-const holidayMap = buildHolidayMap();
-
-function getHoliday(date) {
-    const key = `${date.getMonth() + 1}-${date.getDate()}`;
-    return holidayMap[key] || null;
-}
-
-// ============================
-// Week date calculation
-// ============================
 function getWeekDates(offset) {
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() + diffToMonday + (offset * 7));
-    monday.setHours(0, 0, 0, 0);
+  const now = new Date();
+  const dow = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + (dow === 0 ? -6 : 1 - dow) + offset * 7);
+  monday.setHours(0, 0, 0, 0);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
+}
 
-    const dates = [];
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(monday);
-        d.setDate(monday.getDate() + i);
-        dates.push(d);
+// ---------------------------------------------------------------- view switching
+function switchView(view) {
+  activeView = view;
+  document.getElementById('view-board').classList.toggle('hidden', view !== 'board');
+  document.getElementById('view-weekly').classList.toggle('hidden', view !== 'weekly');
+  document.getElementById('tab-board').classList.toggle('active', view === 'board');
+  document.getElementById('tab-weekly').classList.toggle('active', view === 'weekly');
+  App.setActiveNav(view);
+  if (view === 'weekly' && weeklyData) renderWeekly();
+}
+
+function resetFilters() {
+  document.getElementById('f-search').value = '';
+  document.getElementById('f-teacher').value = '';
+  document.getElementById('f-status').value = '';
+  document.getElementById('f-mine').checked = false;
+  renderCourses();
+}
+
+// ---------------------------------------------------------------- data loading
+async function loadTeachers() {
+  const { data } = await App.get('/api/courses/teachers');
+  teachersData = (data && data.teachers) || [];
+  const select = document.getElementById('f-teacher');
+  const current = select.value;
+  select.innerHTML = `<option value="">${App.esc(I18N.t('v3_filterTeacher'))}</option>` +
+    teachersData.map(t => `<option value="${t.id}">${App.esc(t.display_name)} (${t.course_count})</option>`).join('');
+  select.value = current;
+  document.getElementById('stat-teachers').textContent = teachersData.length;
+}
+
+async function loadCourses(silent = false) {
+  const q = new URLSearchParams();
+  const search = document.getElementById('f-search').value.trim();
+  const teacher = document.getElementById('f-teacher').value;
+  const status = document.getElementById('f-status').value;
+  const mine = document.getElementById('f-mine').checked;
+  if (search) q.set('q', search);
+  if (teacher) q.set('teacher', teacher);
+  if (status) q.set('status', status);
+  if (mine) q.set('mine', '1');
+  const { res, data } = await App.get('/api/courses?' + q.toString());
+  if (!res.ok || !data || !data.courses) {
+    if (!silent) {
+      document.getElementById('course-grid').innerHTML =
+        App.empty(`${App.esc(I18N.t('v3_loadFailed'))} <button class="btn btn-ghost btn-sm" onclick="loadCourses()">${App.esc(I18N.t('v3_retry'))}</button>`);
     }
-    return dates;
+    return;
+  }
+  coursesData = data.courses;
+  document.getElementById('stat-courses').textContent = coursesData.filter(c => c.run_status !== 'cancelled').length;
+  document.getElementById('stat-bookings').textContent = coursesData.reduce((s, c) => s + c.booked_count, 0);
+  renderCourses();
 }
 
-// ============================
-// i18n-aware Formatters
-// ============================
-function formatDateShortI18n(date) {
-    return I18N.formatDateShort(date);
+async function loadWeekly() {
+  const { data } = await App.get('/api/schedule');
+  if (data && data.schedule) {
+    weeklyData = data;
+    renderWeekly();
+  }
 }
 
-function formatWeekRangeI18n(dates) {
-    return I18N.formatWeekRange(dates[0], dates[6]);
+// ---------------------------------------------------------------- course cards
+function courseCardHtml(c) {
+  const e = App.esc;
+  const past = new Date(c.end_utc).getTime() < Date.now();
+  const closed = ['cancelled', 'completed'].includes(c.run_status);
+  const cls = ['course-card', past ? 'is-past' : '', c.run_status === 'cancelled' ? 'is-cancelled' : ''].join(' ');
+  const pct = Math.min(100, Math.round((c.booked_count / Math.max(1, c.capacity)) * 100));
+  const tzPill = `${e(c.timezone)} · ${e(c.gmt_offset)}`;
+  // Only surface a change banner when the class was actually revised, otherwise
+  // every card would repeat "published" noise.
+  const lastUpdate = c.has_update && c.last_update_at
+    ? `<div class="update-line"><span class="update-dot"></span><span>${e(c.last_update_summary || I18N.t('v3_updateBadge'))} · ${e(App.fmtLocal(c.last_update_at))}</span></div>`
+    : '';
+
+  let actions = '';
+  if (!App.user) {
+    actions = `<button class="btn btn-primary" data-action="login">${e(I18N.t('v3_loginToBook'))}</button>`;
+  } else if (App.user.role === 'teacher') {
+    actions = `<button class="btn btn-ghost" disabled>${e(I18N.t('v3_teacherNoBook'))}</button>`;
+  } else if (c.is_my_booking) {
+    actions = `<button class="btn btn-outline-danger" data-action="cancel" data-id="${c.id}">${e(I18N.t('v3_btnCancel'))}</button>`;
+  } else if (closed || past) {
+    actions = `<button class="btn btn-ghost" disabled>${e(I18N.t('v3_classClosed'))}</button>`;
+  } else if (c.seats_left === 0) {
+    actions = `<button class="btn btn-ghost" disabled>${e(I18N.t('v3_seatsFull'))}</button>`;
+  } else {
+    actions = `<button class="btn btn-primary" data-action="book" data-id="${c.id}">${e(I18N.t('v3_btnBook'))}</button>`;
+  }
+
+  return `
+  <article class="${cls}" data-id="${c.id}">
+    <div class="card-top">
+      <div class="card-meta">
+        <span class="teacher-chip"><span class="avatar">${e(App.initial(c.teacher_name))}</span>${e(c.teacher_name)}</span>
+        <span class="badge badge-${e(c.run_status)}">${App.statusIcon(c.run_status)} ${e(App.statusText(c.run_status))}</span>
+        ${c.has_update ? `<span class="badge badge-update">● ${e(I18N.t('v3_updateBadge'))}</span>` : ''}
+        ${past ? `<span class="badge badge-completed">${e(I18N.t('v3_pastClass'))}</span>` : ''}
+      </div>
+      <h3 class="card-title">${e(c.title)}</h3>
+      ${c.status_note ? `<p class="status-note">${e(c.status_note)}</p>` : ''}
+      ${lastUpdate}
+    </div>
+
+    <div class="notice-box">
+      <div class="notice-label">${e(I18N.t('v3_noticeTitle'))}</div>
+      <div class="notice-text ${c.notice ? '' : 'empty'}">${c.notice ? e(c.notice) : e(I18N.t('v3_noticeEmpty'))}</div>
+    </div>
+
+    <div class="google-bar">
+      <div class="google-bar-head">
+        <span>${e(I18N.t('v3_googleTitle'))}</span>
+        <span class="tz-pill">${tzPill}</span>
+      </div>
+      <div class="info-row"><span class="info-ico">🕐</span><div>
+        <div class="info-label">${e(I18N.t('v3_timeTeacher'))} · ${e(App.tzAbbr(c.start_utc, c.timezone))}</div>
+        <div class="info-value">${e(App.fmtInZone(c.start_utc, c.timezone))} → ${e(App.fmtTimeInZone(c.end_utc, c.timezone))}</div>
+      </div></div>
+      <div class="info-row"><span class="info-ico">🌐</span><div>
+        <div class="info-label">${e(I18N.t('v3_timeLocal'))} (${e(Intl.DateTimeFormat().resolvedOptions().timeZone)})</div>
+        <div class="info-value">${e(App.fmtFullLocal(c.start_utc))}</div>
+      </div></div>
+      <div class="info-row"><span class="info-ico">📍</span><div>
+        <div class="info-label">${e(I18N.t('v3_placeLabel'))}</div>
+        <div class="info-value">${e(c.place_name)}</div>
+      </div></div>
+      <div class="link-row">
+        <a class="link-btn" href="${e(c.google_maps_url)}" target="_blank" rel="noopener noreferrer">🗺️ ${e(I18N.t('v3_mapOpen'))}</a>
+        <a class="link-btn" href="${e(c.google_calendar_url)}" target="_blank" rel="noopener noreferrer">📅 ${e(I18N.t('v3_calendarAdd'))}</a>
+      </div>
+    </div>
+
+    <div class="card-foot">
+      <div class="seats-line">
+        <span>${c.seats_left > 0 ? e(I18N.t('v3_seats', { n: c.seats_left })) : e(I18N.t('v3_seatsFull'))}</span>
+        <span>${c.booked_count} / ${c.capacity}</span>
+      </div>
+      <div class="seats-track"><div class="seats-fill" style="width:${pct}%"></div></div>
+      <div class="card-actions">
+        ${actions}
+        <button class="btn btn-ghost" data-action="detail" data-id="${c.id}">${e(I18N.t('v3_btnDetails'))}</button>
+      </div>
+    </div>
+  </article>`;
 }
 
-function formatTimeI18n(time) {
-    return I18N.formatTime(time);
+function renderCourses() {
+  const grid = document.getElementById('course-grid');
+  document.getElementById('result-count').textContent = I18N.t('v3_resultCount', { n: coursesData.length });
+  if (!coursesData.length) {
+    grid.innerHTML = App.empty(`${App.esc(I18N.t('v3_noCourses'))}<br><small>${App.esc(I18N.t('v3_noCoursesHint'))}</small>`);
+    return;
+  }
+  grid.innerHTML = coursesData.map(courseCardHtml).join('');
 }
 
-// ============================
-// Apply i18n to all static elements
-// ============================
-function applyI18nToPage() {
-    // Update document title
-    document.title = I18N.t('pageTitleSchedule');
-
-    // Update meta description
-    const metaDesc = document.querySelector('meta[name="description"]');
-    if (metaDesc) metaDesc.setAttribute('content', I18N.t('metaDescSchedule'));
-
-    // Update all data-i18n elements
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-        el.textContent = I18N.t(el.getAttribute('data-i18n'));
+// ---------------------------------------------------------------- card actions
+document.addEventListener('click', async ev => {
+  const btn = ev.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+  const id = Number(btn.dataset.id);
+  const course = coursesData.find(c => c.id === id);
+  if (action === 'login') { window.location.href = '/login.html'; return; }
+  if (action === 'detail') { openCourseDetail(id); return; }
+  if (action === 'book' && course) {
+    const yes = await App.confirm({
+      title: I18N.t('v3_bookConfirmTitle'),
+      html: App.esc(I18N.t('v3_bookConfirmMsg', { title: course.title })),
+      confirmText: I18N.t('v3_btnBook')
     });
-
-    // Update all data-i18n-placeholder elements
-    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-        el.placeholder = I18N.t(el.getAttribute('data-i18n-placeholder'));
+    if (!yes) return;
+    const { res, data } = await App.post(`/api/courses/${id}/book`);
+    App.toast(data && (data.message || data.error) || I18N.t('errorNetwork'), res.ok ? 'success' : 'error');
+    if (res.ok) loadCourses(true);
+    return;
+  }
+  if (action === 'cancel' && course) {
+    const yes = await App.confirm({
+      title: I18N.t('v3_cancelConfirmTitle'),
+      html: App.esc(I18N.t('v3_cancelConfirmMsg', { title: course.title })),
+      confirmText: I18N.t('v3_btnCancel'),
+      danger: true
     });
-
-    // Update week nav buttons
-    const prevBtn = document.getElementById('btn-prev-week');
-    if (prevBtn) prevBtn.title = I18N.t('weekPrevTitle');
-    const nextBtn = document.getElementById('btn-next-week');
-    if (nextBtn) nextBtn.title = I18N.t('weekNextTitle');
-
-    // Insert language switcher
-    const navLang = document.getElementById('nav-lang');
-    if (navLang && !navLang.querySelector('.lang-switcher')) {
-        navLang.appendChild(I18N.createLanguageSwitcher());
-    }
-
-    // Re-apply auth-specific nav
-    checkAuth();
-
-    // Re-render schedule with new language
-    if (scheduleData) {
-        renderSchedule(scheduleData);
-    }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    applyI18nToPage();
-    checkAuth();
-    loadSchedule();
+    if (!yes) return;
+    const { res, data } = await App.post(`/api/courses/${id}/cancel`);
+    App.toast(data && (data.message || data.error) || I18N.t('errorNetwork'), res.ok ? 'success' : 'error');
+    if (res.ok) loadCourses(true);
+  }
 });
 
-// Listen for language changes
-I18N.onChange(() => {
-    applyI18nToPage();
-    // Update switcher button text
-    const btn = document.getElementById('lang-switcher-btn');
-    if (btn) {
-        const lang = I18N.languages[I18N.getLang()];
-        btn.innerHTML = `<span class="lang-flag">${lang.flag}</span><span class="lang-name">${lang.nativeName}</span><span class="lang-arrow">▾</span>`;
-    }
-});
+async function openCourseDetail(id) {
+  App.showModal({ title: I18N.t('v3_detailTitle'), html: `<div class="loading"><div class="spinner"></div></div>`, wide: true, buttons: [{ label: I18N.t('v3_detailClose'), style: 'ghost', close: true }] });
+  const { res, data } = await App.get(`/api/courses/${id}`);
+  if (!res.ok) { App.closeModal(); App.toast(I18N.t('v3_loadFailed'), 'error'); return; }
+  const c = data.course;
+  const e = App.esc;
+  const updates = (data.updates || []).map(u => `
+    <li><div class="tl-time">${e(App.fmtLocal(u.created_at))} · ${e(u.teacher_name)}</div>
+        <div class="tl-text">${e(u.summary)}</div></li>`).join('');
+  const bookings = (data.bookings || []).map(b => `<li><div class="tl-text">${e(b.display_name)}</div><div class="tl-time">${e(App.fmtLocal(b.created_at))}</div></li>`).join('');
+  const html = `
+    <div class="detail-block">
+      <div class="card-meta">
+        <span class="badge badge-${e(c.run_status)}">${App.statusIcon(c.run_status)} ${e(App.statusText(c.run_status))}</span>
+        ${c.has_update ? `<span class="badge badge-update">● ${e(I18N.t('v3_updateBadge'))} · ${e(I18N.t('v3_revision', { n: c.revision }))}</span>` : ''}
+      </div>
+      <h3 style="margin-top:10px;font-size:18px">${e(c.title)}</h3>
+      <p class="status-note">${e(I18N.t('v3_byTeacher', { name: c.teacher_name }))}${c.status_note ? ' · ' + e(c.status_note) : ''}</p>
+    </div>
+    <div class="detail-block">
+      <h4>${e(I18N.t('v3_noticeTitle'))}</h4>
+      <div class="notice-box" style="margin:0"><div class="notice-text ${c.notice ? '' : 'empty'}">${c.notice ? e(c.notice) : e(I18N.t('v3_noticeEmpty'))}</div>
+      ${c.notice_updated_at ? `<div class="notice-time">${e(App.fmtLocal(c.notice_updated_at))}</div>` : ''}</div>
+    </div>
+    <div class="detail-block">
+      <h4>${e(I18N.t('v3_googleTitle'))} · ${e(c.timezone)} ${e(c.gmt_offset)}</h4>
+      <div class="google-bar" style="margin:0">
+        <div class="info-row"><span class="info-ico">🕐</span><div><div class="info-label">${e(I18N.t('v3_timeTeacher'))}</div><div class="info-value">${e(App.fmtInZone(c.start_utc, c.timezone))} → ${e(App.fmtInZone(c.end_utc, c.timezone))}</div></div></div>
+        <div class="info-row"><span class="info-ico">🌐</span><div><div class="info-label">${e(I18N.t('v3_timeLocal'))}</div><div class="info-value">${e(App.fmtFullLocal(c.start_utc))}</div></div></div>
+        <div class="info-row"><span class="info-ico">📍</span><div><div class="info-label">${e(I18N.t('v3_placeLabel'))}</div><div class="info-value">${e(c.place_name)}</div></div></div>
+        <div class="link-row">
+          <a class="link-btn" href="${e(c.google_maps_url)}" target="_blank" rel="noopener noreferrer">🗺️ ${e(I18N.t('v3_mapOpen'))}</a>
+          <a class="link-btn" href="${e(c.google_calendar_url)}" target="_blank" rel="noopener noreferrer">📅 ${e(I18N.t('v3_calendarAdd'))}</a>
+        </div>
+      </div>
+    </div>
+    <div class="detail-block">
+      <h4>${e(I18N.t('v3_detailUpdates'))}</h4>
+      ${updates ? `<ul class="timeline">${updates}</ul>` : `<p class="panel-note">${e(I18N.t('v3_detailNoUpdates'))}</p>`}
+    </div>
+    ${bookings ? `<div class="detail-block"><h4>${e(I18N.t('v3_detailBookings'))} (${data.bookings.length})</h4><ul class="timeline">${bookings}</ul></div>` : ''}`;
+  App.showModal({ title: I18N.t('v3_detailTitle'), html, wide: true, buttons: [{ label: I18N.t('v3_detailClose'), style: 'ghost', close: true }] });
+}
 
-// Check if user is logged in
-async function checkAuth() {
-    try {
-        const res = await fetch('/api/auth/me');
-        const data = await res.json();
-        const navRight = document.getElementById('nav-right');
-
-        if (data.loggedIn) {
-            currentUser = data.user;
-            const greetText = I18N.t('navGreeting', { name: data.user.displayName });
-            navRight.innerHTML = `
-                <span class="nav-user">${greetText}</span>
-                ${data.user.role === 'teacher' ? `<a href="/admin.html" class="btn btn-sm btn-secondary">${I18N.t('navAdmin')}</a>` : ''}
-                <button class="btn btn-sm btn-secondary" onclick="logout()">${I18N.t('navLogout')}</button>
-            `;
-            document.getElementById('legend-my').classList.remove('hidden');
+// ---------------------------------------------------------------- weekly grid
+function renderWeekly() {
+  if (!weeklyData) return;
+  const { timeSlots, schedule } = weeklyData;
+  const dates = getWeekDates(weekOffset);
+  const shortDays = I18N.getDayShortNames();
+  document.getElementById('week-range-text').textContent = I18N.formatWeekRange(dates[0], dates[6]);
+  const head = document.getElementById('weekly-header');
+  head.innerHTML = `<th>${App.esc(I18N.t('scheduleTimeHeader'))}</th>` + dates.map((d, i) => {
+    const h = getHoliday(d);
+    return `<th class="${h ? 'holiday-col' : ''}"><div class="th-day">${App.esc(shortDays[i])}</div><div class="th-date">${App.esc(I18N.formatDateShort(d))}</div>${h ? `<div class="th-holiday" title="${App.esc(h[3])}">${h[2]}</div>` : ''}</th>`;
+  }).join('');
+  const body = document.getElementById('weekly-body');
+  body.innerHTML = timeSlots.map(slot => {
+    const [start, end] = slot.split('-');
+    const cells = dates.map((d, di) => {
+      const cell = schedule[slot] && schedule[slot][di];
+      const holiday = getHoliday(d);
+      if (!cell) return `<td class="${holiday ? 'holiday-col' : ''}">—</td>`;
+      let cls = 'slot-not', text = I18N.t('slotNotAvailable'), click = '';
+      if (cell.status === 'available') {
+        cls = 'slot-available clickable'; text = I18N.t('slotAvailable');
+        click = `onclick="bookSlot(${cell.id})"`;
+      } else if (cell.status === 'booked') {
+        if (App.user && cell.bookedBy === App.user.id) {
+          cls = 'slot-mine clickable'; text = `${cell.bookedName || ''} · ${I18N.t('cancelClickToCancel')}`;
+          click = `onclick="cancelSlot(${cell.id})"`;
         } else {
-            currentUser = null;
-            navRight.innerHTML = `
-                <a href="/login.html" class="btn btn-sm btn-primary">${I18N.t('navLogin')}</a>
-                <a href="/register.html" class="btn btn-sm btn-secondary">${I18N.t('navRegister')}</a>
-            `;
+          cls = 'slot-booked'; text = `${cell.bookedName || ''} · ${I18N.t('slotBooked')}`;
         }
-    } catch (err) {
-        console.error('Auth check failed:', err);
-    }
+      }
+      return `<td class="${holiday ? 'holiday-col' : ''}"><span class="slot-badge ${cls}" ${click}>${App.esc(text)}</span></td>`;
+    }).join('');
+    return `<tr><td>${App.esc(I18N.formatTime(start))}<br>${App.esc(I18N.formatTime(end))}</td>${cells}</tr>`;
+  }).join('');
+  const legendMy = document.getElementById('legend-my');
+  if (legendMy) legendMy.classList.toggle('hidden', !App.user);
 }
 
-// Load schedule data
-async function loadSchedule() {
-    try {
-        const res = await fetch('/api/schedule');
-        const data = await res.json();
-        scheduleData = data;
-        renderSchedule(data);
-    } catch (err) {
-        console.error('Load schedule failed:', err);
-        document.getElementById('loading').innerHTML = `<p style="color:#e91e63;">${I18N.t('scheduleLoadFailed')}</p>`;
-    }
+function prevWeek() { weekOffset--; renderWeekly(); }
+function nextWeek() { weekOffset++; renderWeekly(); }
+function goToday() { weekOffset = 0; renderWeekly(); }
+
+async function bookSlot(id) {
+  if (!App.user) { App.toast(I18N.t('bookLoginFirst'), 'info'); setTimeout(() => location.href = '/login.html', 1200); return; }
+  const { res, data } = await App.post('/api/schedule/book', { slotId: id });
+  App.toast((data && (data.message || data.error)) || I18N.t('errorNetwork'), res.ok ? 'success' : 'error');
+  if (res.ok) loadWeekly();
+}
+async function cancelSlot(id) {
+  const { res, data } = await App.post('/api/schedule/cancel', { slotId: id });
+  App.toast((data && (data.message || data.error)) || I18N.t('errorNetwork'), res.ok ? 'success' : 'error');
+  if (res.ok) loadWeekly();
 }
 
-// Navigate weeks
-function prevWeek() {
-    currentWeekOffset--;
-    renderSchedule(scheduleData);
-}
+// ---------------------------------------------------------------- boot
+['f-search', 'f-teacher', 'f-status', 'f-mine'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener(id === 'f-search' ? 'input' : 'change', () => loadCourses(true));
+});
 
-function nextWeek() {
-    currentWeekOffset++;
-    renderSchedule(scheduleData);
-}
-
-function goToday() {
-    currentWeekOffset = 0;
-    renderSchedule(scheduleData);
-}
-
-// Render the schedule table
-function renderSchedule(data) {
-    const { timeSlots, days, schedule } = data;
-    const weekDates = getWeekDates(currentWeekOffset);
-    const dayShortNames = I18N.getDayShortNames();
-
-    // Update week navigation bar
-    const weekNav = document.getElementById('week-nav');
-    if (weekNav) {
-        const weekRange = formatWeekRangeI18n(weekDates);
-        document.getElementById('week-range-text').textContent = weekRange;
-
-        const todayBtn = document.getElementById('btn-today');
-        if (todayBtn) {
-            todayBtn.style.display = currentWeekOffset === 0 ? 'none' : 'inline-flex';
-        }
-    }
-
-    // Build header with dates
-    const headerRow = document.getElementById('schedule-header');
-    headerRow.innerHTML = `<th>${I18N.t('scheduleTimeHeader')}</th>`;
-    days.forEach((day, idx) => {
-        const th = document.createElement('th');
-        const date = weekDates[idx];
-        const dateStr = formatDateShortI18n(date);
-        const holiday = getHoliday(date);
-
-        let headerHTML = `<div class="th-day-name">${dayShortNames[idx]}</div>`;
-        headerHTML += `<div class="th-date">${dateStr}</div>`;
-
-        if (holiday) {
-            headerHTML += `<div class="th-holiday" title="${holiday.name} / ${holiday.nameTh}">${holiday.emoji} ${holiday.nameTh}</div>`;
-            th.classList.add('holiday-header');
-        }
-
-        th.innerHTML = headerHTML;
-        headerRow.appendChild(th);
-    });
-
-    // Build body
-    const tbody = document.getElementById('schedule-body');
-    tbody.innerHTML = '';
-
-    timeSlots.forEach((slot, idx) => {
-        const tr = document.createElement('tr');
-
-        // Time cell
-        const tdTime = document.createElement('td');
-        const [start, end] = slot.split('-');
-        tdTime.innerHTML = `${formatTimeI18n(start)}<br>${formatTimeI18n(end)}`;
-        tr.appendChild(tdTime);
-
-        // Day cells
-        for (let d = 0; d < 7; d++) {
-            const td = document.createElement('td');
-            const cellData = schedule[slot] && schedule[slot][d];
-            const holiday = getHoliday(weekDates[d]);
-
-            if (holiday) {
-                td.classList.add('holiday-cell');
-            }
-
-            if (cellData) {
-                td.appendChild(createSlotBadge(cellData));
-            } else {
-                td.textContent = '—';
-            }
-
-            tr.appendChild(td);
-        }
-
-        tbody.appendChild(tr);
-    });
-
-    // Show table, hide loading
-    document.getElementById('loading').classList.add('hidden');
-    document.getElementById('schedule-table').classList.remove('hidden');
-}
-
-// Create a slot badge element
-function createSlotBadge(slotData) {
-    const badge = document.createElement('span');
-    badge.classList.add('slot-badge');
-
-    if (slotData.status === 'available') {
-        badge.classList.add('slot-available');
-        badge.textContent = I18N.t('slotAvailable');
-        badge.title = I18N.t('bookClickToBook');
-        badge.onclick = () => handleBookClick(slotData.id);
-    } else if (slotData.status === 'booked') {
-        badge.classList.add('slot-booked');
-        const nameSpan = document.createElement('span');
-        nameSpan.classList.add('slot-name');
-        nameSpan.textContent = slotData.bookedName;
-        badge.appendChild(nameSpan);
-
-        const statusText = document.createTextNode(I18N.t('slotNotAvailable'));
-        badge.appendChild(statusText);
-
-        if (currentUser && slotData.bookedBy === currentUser.id) {
-            badge.classList.add('my-booking');
-            badge.title = I18N.t('cancelClickToCancel');
-            badge.onclick = () => handleCancelClick(slotData.id, slotData.bookedName);
-        }
-    } else if (slotData.status === 'not_available') {
-        badge.classList.add('slot-not-available');
-        badge.textContent = I18N.t('slotNotAvailable');
-    }
-
-    return badge;
-}
-
-// Handle book click
-function handleBookClick(slotId) {
-    if (!currentUser) {
-        showToast(I18N.t('bookLoginFirst'), 'info');
-        setTimeout(() => window.location.href = '/login.html', 1500);
-        return;
-    }
-    showModal(
-        I18N.t('bookConfirmTitle'),
-        I18N.t('bookConfirmMsg'),
-        async () => {
-            try {
-                const res = await fetch('/api/schedule/book', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ slotId })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    showToast(I18N.t('bookSuccess'), 'success');
-                    loadSchedule();
-                    closeModal();
-                } else {
-                    showToast(data.error || I18N.t('bookFailed'), 'error');
-                }
-            } catch (err) {
-                showToast(I18N.t('errorNetwork'), 'error');
-            }
-        }
-    );
-}
-
-// Handle cancel click
-function handleCancelClick(slotId, name) {
-    showModal(
-        I18N.t('cancelTitle'),
-        I18N.t('cancelConfirmMsg', { name }),
-        async () => {
-            try {
-                const res = await fetch('/api/schedule/cancel', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ slotId })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    showToast(I18N.t('cancelSuccess'), 'success');
-                    loadSchedule();
-                    closeModal();
-                } else {
-                    showToast(data.error || I18N.t('cancelFailed'), 'error');
-                }
-            } catch (err) {
-                showToast(I18N.t('errorNetwork'), 'error');
-            }
-        }
-    );
-}
-
-// Logout
-async function logout() {
-    try {
-        await fetch('/api/auth/logout', { method: 'POST' });
-        showToast(I18N.t('logoutSuccess'), 'info');
-        currentUser = null;
-        checkAuth();
-        loadSchedule();
-    } catch (err) {
-        console.error('Logout failed:', err);
-    }
-}
-
-// Modal functions
-function showModal(title, message, onConfirm) {
-    document.getElementById('modal-title').textContent = title;
-    document.getElementById('modal-message').textContent = message;
-    document.getElementById('modal-overlay').classList.remove('hidden');
-    document.getElementById('modal-confirm').onclick = onConfirm;
-    // Update modal button text
-    document.getElementById('modal-cancel').textContent = I18N.t('modalCancel');
-    document.getElementById('modal-confirm').textContent = I18N.t('modalConfirm');
-}
-
-function closeModal() {
-    document.getElementById('modal-overlay').classList.add('hidden');
-}
-
-// Toast notifications
-function showToast(message, type = 'info') {
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-    document.body.appendChild(toast);
-
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(100px)';
-        toast.style.transition = 'all 0.3s ease';
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
-}
-
-// Close modal on overlay click
-document.getElementById('modal-overlay').addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) closeModal();
+App.boot({
+  onReady: async () => {
+    App.setActiveNav('board');
+    await Promise.all([loadTeachers(), loadCourses(), loadWeekly()]);
+    clearInterval(refreshTimer);
+    refreshTimer = setInterval(() => {
+      if (document.visibilityState === 'visible' && !document.body.classList.contains('modal-open')) {
+        loadCourses(true);
+        if (activeView === 'weekly') loadWeekly();
+      }
+    }, 20000);
+  },
+  onLangChange: () => {
+    // Rebuild translated option labels, filters, cards and weekly header.
+    loadTeachers();
+    document.getElementById('f-status').innerHTML = `
+      <option value="">${App.esc(I18N.t('v3_filterStatus'))}</option>
+      <option value="confirmed">${App.esc(I18N.t('v3_statusConfirmed'))}</option>
+      <option value="pending">${App.esc(I18N.t('v3_statusPending'))}</option>
+      <option value="cancelled">${App.esc(I18N.t('v3_statusCancelled'))}</option>
+      <option value="completed">${App.esc(I18N.t('v3_statusCompleted'))}</option>`;
+    loadCourses(true);
+    if (weeklyData) renderWeekly();
+  }
 });

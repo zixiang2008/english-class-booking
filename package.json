@@ -1,12 +1,14 @@
 {
   "name": "english-class-booking",
-  "version": "2.0.0",
-  "description": "English Class Booking System - 英语约课系统 (4-language i18n)",
+  "version": "3.0.0",
+  "description": "English Class Booking v3 - multi-teacher class board, notice board, Google Maps address bar, real timezones, live bookings (4-language i18n)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node tests/test-suite.js"
+    "test": "node tests/test-suite.js",
+    "check:i18n": "node scripts/check-i18n.js",
+    "check": "node scripts/check-i18n.js && node --check server.js && npm test"
   },
   "engines": {
     "node": ">=18.0.0"

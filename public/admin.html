@@ -1,99 +1,130 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Teacher Admin Panel - English Class Booking System">
-    <title>Teacher Admin - English Class Booking</title>
-    <link rel="stylesheet" href="/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#5b4bdb">
+  <meta name="description" content="Teacher studio — publish classes, manage notices and Google locations, and watch bookings in real time.">
+  <title data-i18n="pageTitleAdmin">Teacher Admin - English Class Booking</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/style.css">
 </head>
-
 <body>
-    <!-- Header -->
-    <header class="header">
-        <h1 data-i18n="appTitle">English Class Schedule</h1>
-        <p class="header-subtitle" data-i18n="adminSubtitle">Teacher Admin Panel</p>
-    </header>
-
-    <!-- Navigation -->
-    <nav class="nav-bar" id="navbar">
-        <div class="nav-left">
-            <a href="/" class="logo" style="text-decoration:none;" data-i18n="appName">📖 English Class</a>
-        </div>
-        <div class="nav-center" id="nav-lang"></div>
-        <div class="nav-right" id="nav-right">
-            <a href="/" class="btn btn-sm btn-secondary" data-i18n="navBackSchedule">← Schedule</a>
-            <button class="btn btn-sm btn-danger" onclick="logout()" data-i18n="logoutText">Logout</button>
-        </div>
-    </nav>
-
-    <!-- Admin Content -->
-    <div class="admin-container">
-        <!-- Tabs -->
-        <div class="admin-tabs">
-            <button class="admin-tab active" id="tab-schedule" onclick="switchTab('schedule')"
-                data-i18n="adminTabSchedule">📅 Schedule Management</button>
-            <button class="admin-tab" id="tab-students" onclick="switchTab('students')" data-i18n="adminTabStudents">👥
-                Student List</button>
-        </div>
-
-        <!-- Schedule Management Panel -->
-        <div class="admin-panel" id="panel-schedule">
-            <h3 data-i18n="adminScheduleTitle">📅 Schedule Management</h3>
-            <p style="color:#888; font-size:0.85rem; margin-bottom:16px;" data-i18n="adminScheduleDesc">Click buttons to
-                toggle slot status or remove bookings</p>
-            <!-- Admin Week Navigation -->
-            <div class="week-nav week-nav-admin" id="admin-week-nav">
-                <button class="week-nav-btn" onclick="adminPrevWeek()" id="admin-btn-prev-week">
-                    <span class="week-nav-arrow">‹</span>
-                </button>
-                <div class="week-nav-center">
-                    <span class="week-range" id="admin-week-range-text">Loading...</span>
-                    <button class="btn btn-sm btn-today" id="admin-btn-today" onclick="adminGoToday()"
-                        style="display:none;" data-i18n="weekToday">📍 This Week</button>
-                </div>
-                <button class="week-nav-btn" onclick="adminNextWeek()" id="admin-btn-next-week">
-                    <span class="week-nav-arrow">›</span>
-                </button>
-            </div>
-            <div class="loading" id="admin-loading">
-                <div class="spinner"></div>
-                <p data-i18n="adminLoadingText">Loading...</p>
-            </div>
-            <div style="overflow-x: auto;">
-                <table class="admin-schedule-table hidden" id="admin-schedule-table">
-                    <thead>
-                        <tr id="admin-schedule-header">
-                            <th data-i18n="scheduleTimeHeader">TIME</th>
-                        </tr>
-                    </thead>
-                    <tbody id="admin-schedule-body">
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Students Panel -->
-        <div class="admin-panel hidden" id="panel-students">
-            <h3 data-i18n="adminStudentsTitle">👥 Registered Students</h3>
-            <div class="loading" id="students-loading">
-                <div class="spinner"></div>
-                <p data-i18n="adminLoadingText">Loading...</p>
-            </div>
-            <div class="student-list hidden" id="student-list">
-            </div>
-        </div>
+  <nav class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">EC</span>
+        <span class="brand-text"><strong data-i18n="appName">📖 English Class</strong><small data-i18n="v3_brandTag">Multi-teacher class board</small></span>
+      </a>
+      <div class="nav-links" id="main-links">
+        <a class="nav-link" data-nav="board" href="/" data-i18n="v3_navBoard">Classes</a>
+        <a class="nav-link" data-nav="calendar" href="/calendar.html" data-i18n="v3_navCalendar">Calendar</a>
+        <a class="nav-link active" data-nav="admin" href="/admin.html" data-i18n="v3_navAdmin">Teacher studio</a>
+      </div>
+      <div class="topbar-right">
+        <div id="nav-lang"></div>
+        <div id="nav-right"></div>
+      </div>
     </div>
+  </nav>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <p class="footer-text" data-i18n="footerAdmin">Teacher Admin Panel</p>
-        <p class="footer-contact" data-i18n="footerAdminSub">English Class Booking System</p>
-    </footer>
+  <header class="hero">
+    <div class="hero-inner" style="padding-top:28px;padding-bottom:26px">
+      <span class="eyebrow" data-i18n="adminSubtitle">Teacher Admin Panel</span>
+      <h1 data-i18n="v3_adminTitle">Teacher studio</h1>
+      <p class="hero-desc" data-i18n="v3_adminDesc">Publish classes, watch bookings arrive in real time, and keep students informed.</p>
+    </div>
+  </header>
 
-    <script src="/js/i18n.js"></script>
-    <script src="/js/admin.js"></script>
+  <main class="main">
+    <div class="wrap">
+      <div class="admin-tabs" id="admin-tabs">
+        <button class="admin-tab active" type="button" data-tab="overview" onclick="switchTab('overview')" data-i18n="v3_tabOverview">📊 Overview</button>
+        <button class="admin-tab" type="button" data-tab="publish" onclick="switchTab('publish')" data-i18n="v3_tabPublish">📢 Publish classes</button>
+        <button class="admin-tab" type="button" data-tab="bookings" onclick="switchTab('bookings')" data-i18n="v3_tabBookings">🔔 Bookings</button>
+        <button class="admin-tab" type="button" data-tab="slots" onclick="switchTab('slots')" data-i18n="v3_tabSlots">🗓️ Weekly slots</button>
+        <button class="admin-tab" type="button" data-tab="students" onclick="switchTab('students')" data-i18n="v3_tabStudents">👥 Students</button>
+      </div>
+
+      <!-- Overview -->
+      <section id="panel-overview" class="admin-panel">
+        <div class="section-head"><div><h2 data-i18n="v3_ovTitle">At a glance</h2></div><span class="live-dot" data-i18n="v3_live">Live</span></div>
+        <div class="stat-grid" id="overview-stats">
+          <div class="stat-card tint-purple"><div class="label" data-i18n="v3_ovCourses">My classes</div><div class="value" id="ov-courses">–</div></div>
+          <div class="stat-card tint-green"><div class="label" data-i18n="v3_ovConfirmed">Confirmed</div><div class="value" id="ov-confirmed">–</div></div>
+          <div class="stat-card tint-amber"><div class="label" data-i18n="v3_ovPending">Tentative</div><div class="value" id="ov-pending">–</div></div>
+          <div class="stat-card tint-teal"><div class="label" data-i18n="v3_ovBookings">Bookings</div><div class="value" id="ov-bookings">–</div></div>
+          <div class="stat-card"><div class="label" data-i18n="v3_ovStudents">Students</div><div class="value" id="ov-students">–</div></div>
+          <div class="stat-card"><div class="label" data-i18n="v3_ovTeachers">Teachers on site</div><div class="value" id="ov-teachers">–</div></div>
+        </div>
+        <div class="panel" style="margin-top:18px">
+          <div class="panel-head"><h3 data-i18n="v3_ovRecent">Latest bookings</h3>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="switchTab('bookings')" data-i18n="v3_btnDetails">Details &amp; updates</button></div>
+          <div id="overview-recent" class="loading"><div class="spinner"></div></div>
+        </div>
+      </section>
+
+      <!-- Publish -->
+      <section id="panel-publish" class="admin-panel hidden">
+        <div class="section-head">
+          <div><h2 data-i18n="v3_publishTitle">My published classes</h2><p data-i18n="v3_publishDesc">Every class must have a notice, a timezone, a real date/time, a place and a Google Maps address.</p></div>
+          <button class="btn btn-primary" type="button" onclick="openCourseEditor()" data-i18n="v3_newCourse">＋ Publish a class</button>
+        </div>
+        <div id="my-course-list" class="loading"><div class="spinner"></div></div>
+      </section>
+
+      <!-- Bookings -->
+      <section id="panel-bookings" class="admin-panel hidden">
+        <div class="section-head">
+          <div><h2 data-i18n="v3_bookingsTitle">Live booking feed</h2><p data-i18n="v3_bookingsDesc">Refreshes automatically. New bookings appear at the top.</p></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="live-dot" data-i18n="v3_autoRefresh">Auto-refresh on</span>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="loadBookings(false)" data-i18n="v3_refresh">Refresh now</button>
+          </div>
+        </div>
+        <div class="panel"><div id="booking-list" class="loading"><div class="spinner"></div></div></div>
+      </section>
+
+      <!-- Weekly slots -->
+      <section id="panel-slots" class="admin-panel hidden">
+        <div class="section-head"><div><h2 data-i18n="v3_slotsTitle">Weekly slot management</h2><p data-i18n="v3_slotsDesc">Toggle availability for the recurring weekly timetable.</p></div></div>
+        <div class="panel">
+          <div class="week-nav">
+            <button class="btn btn-ghost btn-sm" type="button" onclick="adminPrevWeek()">‹</button>
+            <span class="week-range" id="admin-week-range">…</span>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="adminNextWeek()">›</button>
+            <button class="btn btn-soft btn-sm" type="button" onclick="adminGoToday()" data-i18n="weekToday">📍 This Week</button>
+          </div>
+          <div class="grid-scroll">
+            <table class="grid" id="admin-grid"><thead><tr id="admin-grid-header"></tr></thead><tbody id="admin-grid-body"></tbody></table>
+          </div>
+          <div class="legend">
+            <span><i class="dot" style="background:#e6f6ea"></i><span data-i18n="slotAvailable">Available</span></span>
+            <span><i class="dot" style="background:#fff2d9"></i><span data-i18n="slotBooked">Booked</span></span>
+            <span><i class="dot" style="background:#e5e8f2"></i><span data-i18n="slotNotAvailable">Not Available</span></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Students -->
+      <section id="panel-students" class="admin-panel hidden">
+        <div class="section-head"><div><h2 data-i18n="v3_studentsTitle">Registered students</h2></div></div>
+        <div class="panel"><div id="student-list" class="loading"><div class="spinner"></div></div></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span><strong data-i18n="footerAdmin">Teacher Admin Panel</strong></span>
+      <span data-i18n="footerAdminSub">English Class Booking System</span>
+      <span data-i18n="v3_footerMade">Built for teachers and students · v3.0</span>
+    </div>
+  </footer>
+
+  <script src="/js/i18n.js"></script>
+  <script src="/js/i18n-v3.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/admin.js"></script>
 </body>
-
 </html>

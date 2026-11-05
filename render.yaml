@@ -9,5 +9,19 @@ services:
         value: production
       - key: SESSION_SECRET
         generateValue: true
+      # Change this before going live — it is the only thing protecting
+      # teacher self-registration.
+      - key: TEACHER_INVITE_CODE
+        value: TEACHER2026
+      # Optional: public base URL used by /api/calendar/info and startup logs.
+      - key: SITE_URL
+        sync: false
+      # Optional: Google OAuth. Leave empty to hide the Google button.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
     plan: free
     autoDeploy: true

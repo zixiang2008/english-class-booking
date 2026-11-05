@@ -9,6 +9,8 @@ const { t } = require('../i18n-server');
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
 const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || '';
+// Teachers self-register with this invite code (change it in production).
+const TEACHER_INVITE_CODE = process.env.TEACHER_INVITE_CODE || 'TEACHER2026';
 
 let googleClient = null;
 if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
@@ -19,7 +21,7 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
 router.post('/register', (req, res) => {
     try {
         const db = getDb();
-        const { username, password, displayName, phone } = req.body;
+        const { username, password, displayName, phone, teacherCode } = req.body;
 
         if (!username || !password || !displayName) {
             return res.status(400).json({ error: t(req, 'fillRequired') });
@@ -35,16 +37,24 @@ router.post('/register', (req, res) => {
             return res.status(400).json({ error: t(req, 'usernameExists') });
         }
 
+        let role = 'student';
+        if (teacherCode) {
+            if (teacherCode !== TEACHER_INVITE_CODE) {
+                return res.status(400).json({ error: t(req, 'teacherCodeInvalid') });
+            }
+            role = 'teacher';
+        }
+
         const hash = bcrypt.hashSync(password, 10);
         const result = db.prepare(
             'INSERT INTO users (username, password_hash, display_name, phone, role) VALUES (?, ?, ?, ?, ?)'
-        ).run(username, hash, displayName, phone || '', 'student');
+        ).run(username, hash, displayName, phone || '', role);
 
         req.session.userId = result.lastInsertRowid;
-        req.session.role = 'student';
+        req.session.role = role;
         req.session.displayName = displayName;
 
-        res.json({ success: true, user: { id: result.lastInsertRowid, displayName, role: 'student' } });
+        res.json({ success: true, user: { id: result.lastInsertRowid, displayName, role } });
     } catch (err) {
         console.error('Register error:', err);
         res.status(500).json({ error: t(req, 'registerFailed') });
@@ -86,7 +96,9 @@ router.post('/login', (req, res) => {
 // ============================
 router.get('/config', (req, res) => {
     res.json({
-        googleOAuthEnabled: !!googleClient
+        googleOAuthEnabled: !!googleClient,
+        teacherRegistrationEnabled: true,
+        teacherInviteCodeRequired: !!TEACHER_INVITE_CODE
     });
 });
 

@@ -1,106 +1,133 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="English Class Schedule - Book your English lessons online. View available time slots and reserve your class today.">
-    <title>English Class Schedule</title>
-    <link rel="stylesheet" href="/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#5b4bdb">
+  <meta name="description" content="Browse English classes published by multiple teachers, see the real time and place, and book online.">
+  <title data-i18n="pageTitleSchedule">English Class Schedule</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <!-- Header -->
-    <header class="header">
-        <h1 data-i18n="appTitle">English Class Schedule</h1>
-        <p class="header-subtitle" data-i18n="appSubtitle">View available times and book your class</p>
-    </header>
-
-    <!-- Navigation -->
-    <nav class="nav-bar" id="navbar">
-        <div class="nav-left">
-            <span class="logo" data-i18n="appName">📖 English Class</span>
-        </div>
-        <div class="nav-center" id="nav-lang">
-            <!-- Language switcher inserted here by JS -->
-        </div>
-        <div class="nav-right" id="nav-right">
-            <!-- Dynamic: login/register buttons or user info -->
-        </div>
-    </nav>
-
-    <!-- Legend -->
-    <div class="legend" id="legend">
-        <div class="legend-item">
-            <span class="legend-dot available"></span>
-            <span data-i18n="legendAvailable">Available</span>
-        </div>
-        <div class="legend-item">
-            <span class="legend-dot booked"></span>
-            <span data-i18n="legendBooked">Booked</span>
-        </div>
-        <div class="legend-item">
-            <span class="legend-dot not-available"></span>
-            <span data-i18n="legendNotAvailable">Not Available</span>
-        </div>
-        <div class="legend-item hidden" id="legend-my">
-            <span class="legend-dot my-booking"></span>
-            <span data-i18n="legendMyBooking">My Booking</span>
-        </div>
+  <nav class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">EC</span>
+        <span class="brand-text"><strong data-i18n="appName">📖 English Class</strong><small data-i18n="v3_brandTag">Multi-teacher class board</small></span>
+      </a>
+      <div class="nav-links" id="main-links">
+        <a class="nav-link active" data-nav="board" href="#board" onclick="switchView('board');return false;" data-i18n="v3_navBoard">Classes</a>
+        <a class="nav-link" data-nav="weekly" href="#weekly" onclick="switchView('weekly');return false;" data-i18n="v3_navWeekly">Weekly grid</a>
+        <a class="nav-link" data-nav="calendar" href="/calendar.html" data-i18n="v3_navCalendar">Calendar</a>
+        <a class="nav-link hidden" data-nav="admin" id="nav-admin-link" href="/admin.html" data-i18n="v3_navAdmin">Teacher studio</a>
+      </div>
+      <div class="topbar-right">
+        <div id="nav-lang"></div>
+        <div id="nav-right"></div>
+      </div>
     </div>
+  </nav>
 
-    <!-- Week Navigation -->
-    <div class="week-nav" id="week-nav">
-        <button class="week-nav-btn" onclick="prevWeek()" id="btn-prev-week">
-            <span class="week-nav-arrow">‹</span>
-        </button>
-        <div class="week-nav-center">
-            <span class="week-range" id="week-range-text">Loading...</span>
-            <button class="btn btn-sm btn-today" id="btn-today" onclick="goToday()" style="display:none;" data-i18n="weekToday">📍 This Week</button>
-        </div>
-        <button class="week-nav-btn" onclick="nextWeek()" id="btn-next-week">
-            <span class="week-nav-arrow">›</span>
-        </button>
+  <header class="hero">
+    <div class="hero-inner">
+      <span class="eyebrow" data-i18n="v3_heroEyebrow">MULTIPLE TEACHERS · ONE PAGE</span>
+      <h1 data-i18n="v3_heroTitle">Find your next English class</h1>
+      <p class="hero-desc" data-i18n="v3_heroDesc">Browse classes published by every teacher, check the real time and place, and book the one that fits you.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#board" onclick="switchView('board');return false;" data-i18n="v3_heroCta">Browse classes</a>
+        <a class="btn btn-ghost" href="/calendar.html" data-i18n="v3_navCalendar">Calendar</a>
+      </div>
+      <div class="hero-stats" id="hero-stats">
+        <span class="stat-chip"><strong id="stat-teachers">–</strong><span data-i18n="v3_statTeachers">Teachers</span></span>
+        <span class="stat-chip"><strong id="stat-courses">–</strong><span data-i18n="v3_statCourses">Open classes</span></span>
+        <span class="stat-chip"><strong id="stat-bookings">–</strong><span data-i18n="v3_statBookings">Bookings</span></span>
+      </div>
     </div>
+  </header>
 
-    <!-- Schedule Table -->
-    <div class="schedule-container">
-        <div class="schedule-table-wrap">
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <p data-i18n="scheduleLoading">Loading schedule...</p>
+  <main class="main">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <div class="segmented" role="tablist">
+            <button type="button" id="tab-board" class="active" onclick="switchView('board')" data-i18n="v3_tabBoard">🎯 Class board</button>
+            <button type="button" id="tab-weekly" onclick="switchView('weekly')" data-i18n="v3_tabWeekly">🗓️ Weekly grid</button>
+          </div>
+        </div>
+        <span class="live-dot" data-i18n="v3_live">Live</span>
+      </div>
+
+      <!-- ============ Course board ============ -->
+      <section id="view-board">
+        <div class="filters">
+          <div class="search-box">
+            <input type="search" id="f-search" data-i18n-placeholder="v3_filterSearch" placeholder="Search class, place or teacher…" aria-label="Search">
+          </div>
+          <select id="f-teacher" aria-label="Teacher"><option value="" data-i18n="v3_filterTeacher">All teachers</option></select>
+          <select id="f-status" aria-label="Status">
+            <option value="" data-i18n="v3_filterStatus">All statuses</option>
+            <option value="confirmed" data-i18n="v3_statusConfirmed">Will run</option>
+            <option value="pending" data-i18n="v3_statusPending">Tentative</option>
+            <option value="cancelled" data-i18n="v3_statusCancelled">Cancelled</option>
+            <option value="completed" data-i18n="v3_statusCompleted">Finished</option>
+          </select>
+          <label class="toggle-mine"><input type="checkbox" id="f-mine"><span data-i18n="v3_filterMine">Only my bookings</span></label>
+          <button class="btn btn-ghost btn-sm" type="button" onclick="resetFilters()" data-i18n="v3_filterReset">Reset</button>
+        </div>
+        <div class="result-line">
+          <span id="result-count" data-i18n="v3_loading">Loading…</span>
+          <button class="btn btn-ghost btn-sm" type="button" onclick="loadCourses()" data-i18n="v3_refresh">Refresh now</button>
+        </div>
+        <div id="course-grid" class="course-grid">
+          <div class="loading"><div class="spinner"></div><span data-i18n="v3_loading">Loading…</span></div>
+        </div>
+      </section>
+
+      <!-- ============ Weekly grid ============ -->
+      <section id="view-weekly" class="hidden">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h3 data-i18n="v3_weeklyTitle">Weekly availability grid</h3>
+              <p class="panel-note" data-i18n="v3_weeklyDesc">The classic recurring timetable. Click an available slot to reserve it.</p>
             </div>
-            <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-                <table class="schedule-table hidden" id="schedule-table">
-                    <thead>
-                        <tr id="schedule-header">
-                            <th data-i18n="scheduleTimeHeader">TIME</th>
-                        </tr>
-                    </thead>
-                    <tbody id="schedule-body">
-                    </tbody>
-                </table>
-            </div>
+          </div>
+          <div class="week-nav">
+            <button class="btn btn-ghost btn-sm" type="button" onclick="prevWeek()" aria-label="Previous week">‹</button>
+            <span class="week-range" id="week-range-text">…</span>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="nextWeek()" aria-label="Next week">›</button>
+            <button class="btn btn-soft btn-sm" type="button" onclick="goToday()" data-i18n="weekToday">📍 This Week</button>
+          </div>
+          <div class="grid-scroll">
+            <table class="grid" id="weekly-table">
+              <thead><tr id="weekly-header"></tr></thead>
+              <tbody id="weekly-body"></tbody>
+            </table>
+          </div>
+          <div class="legend">
+            <span><i class="dot" style="background:#e6f6ea"></i><span data-i18n="legendAvailable">Available</span></span>
+            <span><i class="dot" style="background:#fff2d9"></i><span data-i18n="legendBooked">Booked</span></span>
+            <span><i class="dot" style="background:#e5e8f2"></i><span data-i18n="legendNotAvailable">Not Available</span></span>
+            <span id="legend-my" class="hidden"><i class="dot" style="background:#eeecff"></i><span data-i18n="legendMyBooking">My Booking</span></span>
+          </div>
+          <p class="panel-note" data-i18n="v3_weeklyNote">Weekly grid shows recurring availability; the class board above shows concrete dates, timezones and places.</p>
         </div>
+      </section>
     </div>
+  </main>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <p class="footer-text" data-i18n="footerText">Interested In My Classes? Book Now!</p>
-        <p class="footer-contact" data-i18n="footerContact">TEL 098 007 8731 | Yosowa.toeskol@gmail.com | Wechat ID Ysowa 098 007 8731</p>
-    </footer>
-
-    <!-- Modal for booking/cancel confirmation -->
-    <div class="modal-overlay hidden" id="modal-overlay">
-        <div class="modal" id="modal">
-            <h3 id="modal-title"></h3>
-            <p id="modal-message"></p>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" id="modal-cancel" onclick="closeModal()" data-i18n="modalCancel">Cancel</button>
-                <button class="btn btn-primary" id="modal-confirm" data-i18n="modalConfirm">Confirm</button>
-            </div>
-        </div>
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span><strong data-i18n="footerText">Interested In My Classes? Book Now!</strong></span>
+      <span data-i18n="footerContact">TEL 098 007 8731 | Yosowa.toeskol@gmail.com</span>
+      <span data-i18n="v3_footerMade">Built for teachers and students · v3.0</span>
     </div>
+  </footer>
 
-    <script src="/js/i18n.js"></script>
-    <script src="/js/schedule.js"></script>
+  <script src="/js/i18n.js"></script>
+  <script src="/js/i18n-v3.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/schedule.js"></script>
 </body>
 </html>

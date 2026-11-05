@@ -1,259 +1,370 @@
-<div align="center">
+# English Class Booking v3
 
-# 🎓 English Class Booking System
-# 英语课程预约系统
+多老师英语课程预约系统：一个页面发布课程、通知栏、谷歌地址栏、真实时区时间、学生预约、老师实时看板、开课状态与更新记录。
 
-[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-english--class--booking-7c3aed?style=for-the-badge)](https://english-class-booking.onrender.com/)
-[![Node.js](https://img.shields.io/badge/Node.js-≥18-339933?style=flat-square&logo=node.js)](https://nodejs.org/)
-[![Express](https://img.shields.io/badge/Express-4.x-000000?style=flat-square&logo=express)](https://expressjs.com/)
-[![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
-
-**A modern, multilingual class booking system for English tutoring.**
-**一个现代化、多语言支持的英语课程预约系统。**
-
-[🌐 Live Demo 在线演示](https://english-class-booking.onrender.com/) · [📖 Features 功能特性](#-features--功能特性) · [🚀 Quick Start 快速开始](#-quick-start--快速开始)
-
-</div>
+- Node.js 18+ / Express 4 / sql.js（SQLite）
+- 原生 HTML + CSS + JavaScript，无前端构建步骤
+- 英文 / 中文 / 泰文 / 日文四语言，移动端优先
 
 ---
 
-## 📸 Screenshots / 界面展示
+## 1. v3 解决了什么
 
-<table>
-  <tr>
-    <td width="50%">
-      <img src="docs/screenshots/schedule.png" alt="Weekly Schedule View" />
-      <p align="center"><b>📅 Weekly Schedule / 每周课程表</b></p>
-    </td>
-    <td width="50%">
-      <img src="docs/screenshots/schedule-loggedin.png" alt="Logged-in Schedule View" />
-      <p align="center"><b>👩‍🏫 Teacher View / 教师视图</b></p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <img src="docs/screenshots/login.png" alt="Login Page" />
-      <p align="center"><b>🔐 Login with PIN / PIN码登录</b></p>
-    </td>
-    <td width="50%">
-      <img src="docs/screenshots/register.png" alt="Register Page" />
-      <p align="center"><b>✨ Register / 创建账号</b></p>
-    </td>
-  </tr>
-</table>
+| 能力 | v2 | v3 |
+| --- | --- | --- |
+| 课程模型 | 只有 7 天 × 8 时段的循环周表 | 新增「具体课程」：日期、时间、时区、地点、名额 |
+| 多老师 | 单一老师视角 | 多位老师在同一页面发布，按 `teacher_id` 隔离权限 |
+| 通知栏 | 无 | 每门课可写通知，硬性限制 100 字 |
+| 上课地点 | 纯文本 | 谷歌地址栏：时区 / 日期 / 起止时间 / 地点 / Google Maps 链接，全部必填 |
+| 时间准确性 | 本地墙钟时间，跨时区会误解 | 服务端把老师本地时间换算为真实 UTC，学生同时看到「老师当地时间」和「我的当地时间」 |
+| 学生预约 | 只能占用周表格子 | 针对具体课程预约，含名额、重复预约、满员、取消 |
+| 老师看预约 | 需要刷新后台 | 工作台实时预约流，15 秒自动刷新，新预约标记 NEW |
+| 开课状态 | 无 | pending / confirmed / cancelled / completed，学生可见 |
+| 更新记录 | 无 | revision + 变更日志，学生看到「有更新」和时间线 |
+| 日历 | 仅周表 ICS | 具体课程以真实 UTC 事件写入 ICS，并生成 Google Calendar 链接 |
+| 界面 | 桌面优先 | 重新设计的移动优先界面，手机单列卡片、底部抽屉弹窗 |
 
 ---
 
-## ✨ Features / 功能特性
+## 2. 功能清单
 
-### 🗓️ Schedule Management / 课程表管理
-| Feature | Description |
-|---------|-------------|
-| **Weekly Calendar View** / 每周日历视图 | Color-coded 7-day schedule with 8 time slots (10:00–19:00) / 彩色编码的7天课程表，8个时间段 |
-| **Real-time Status** / 实时状态 | 🟢 Available 可约 · 🟡 Booked 已约 · 🔴 Not Available 不可约 |
-| **Week Navigation** / 周导航 | Browse past and future weeks with date display / 浏览过去和未来的周次，显示具体日期 |
+### 2.1 老师端（`/admin.html`）
 
-### 🔐 Authentication / 用户认证
-| Feature | Description |
-|---------|-------------|
-| **4-Digit PIN** / 4位数字PIN码 | Simple and secure student login with 4-digit PIN / 简单安全的4位数字密码登录 |
-| **Google OAuth** / Google第三方登录 | One-click registration & login via Google account / 一键 Google 账号注册登录 |
-| **Session Management** / 会话管理 | Secure cookie-based sessions with 7-day expiry / 基于 Cookie 的安全会话，7天有效期 |
+- 工作台概览：我的课程、已确认、待确认、预约数、学生数、站点老师数
+- 发布课程：标题、通知栏（≤100 字）、时区、日期、开始/结束时间、地点、Google Maps 地址、名额、开课状态
+- 编辑课程：任意字段，保存后自动递增 revision 并写入更新历史
+- 状态切换：待确认 / 确认开课 / 已取消 / 已完成，可附状态说明
+- 实时预约流：学生姓名、用户名、电话、课程、上课时间、预约时间
+- 周表管理：保留 v2 的 7×8 循环时段开关
+- 学生列表：注册学生与预约次数
+- 权限：只能编辑/删除自己发布的课程
 
-### 🌍 Internationalization (i18n) / 多语言支持
-| Language | Status |
-|----------|--------|
-| 🇬🇧 English | ✅ Full Support |
-| 🇨🇳 中文 (Chinese) | ✅ 完整支持 |
-| 🇹🇭 ภาษาไทย (Thai) | ✅ รองรับเต็มรูปแบบ |
-| 🇯🇵 日本語 (Japanese) | ✅ 完全サポート |
+### 2.2 学生端（`/`）
 
-### �‍🏫 Teacher Admin / 教师后台
-- **Manage Slots** — Set time slots as Available / Not Available / 设置时间段状态
-- **View All Bookings** — See student names and booking details / 查看所有预约详情
-- **Batch Operations** — Quickly update multiple time slots / 批量更新时间段
+- 课程广场：按老师、状态、关键词筛选，支持「只看我的预约」
+- 每张课程卡片展示：
+  - 老师、开课状态、是否有更新
+  - 通知栏（100 字以内）
+  - 谷歌地址栏：IANA 时区 + GMT 偏移、老师当地时间、我的当地时间、地点、Google Maps 链接、加入 Google 日历
+  - 剩余名额与已预约人数
+- 一键预约 / 取消预约，重复预约、满员、已取消课程会被拦截
+- 课程详情：完整信息、更新历史、老师可见的预约学生
+- 周课表视图：保留旧的循环时间表
 
-### 📲 Mobile Responsive / 移动端适配
-- Fully responsive design for phones, tablets, and desktops / 完全响应式设计，适配手机、平板和桌面端
-- Touch-friendly interface / 触控友好界面
+### 2.3 通用
 
----
-
-## 🏗️ Tech Stack / 技术栈
-
-```
-┌─────────────────────────────────────────────────┐
-│  Frontend / 前端                                 │
-│  ├── HTML5 + Vanilla CSS + JavaScript           │
-│  ├── Responsive Design (Mobile-first)           │
-│  └── Client-side i18n (4 languages)             │
-├─────────────────────────────────────────────────┤
-│  Backend / 后端                                  │
-│  ├── Node.js (≥18) + Express 4.x               │
-│  ├── express-session (Cookie-based auth)        │
-│  ├── bcryptjs (Password hashing)                │
-│  └── google-auth-library (OAuth 2.0)            │
-├─────────────────────────────────────────────────┤
-│  Database / 数据库                               │
-│  └── SQLite via sql.js (Zero-dependency)        │
-├─────────────────────────────────────────────────┤
-│  Deployment / 部署                               │
-│  └── Render.com (Free tier, auto-deploy)        │
-└─────────────────────────────────────────────────┘
-```
+- 四语言切换，服务端 API 错误也会按 `X-Language` 返回对应语言
+- 登录 / 注册：4 位数字 PIN，老师可用邀请码注册
+- Google OAuth（配置了 `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` 才会显示按钮）
+- 日历订阅页 `/calendar.html`：ICS 地址、公开 JSON、订阅教程
+- 移动端：单列卡片、底部抽屉弹窗、横向滚动周表、44px 以上触控目标
 
 ---
 
-## 📁 Project Structure / 项目结构
-
-```
-english-class-booking/
-├── server.js              # Express server entry point / 服务器入口
-├── database.js            # SQLite database & initialization / 数据库初始化
-├── i18n-server.js         # Server-side internationalization / 服务端国际化
-├── render.yaml            # Render.com deployment config / 云部署配置
-├── package.json           # Dependencies & scripts / 依赖与脚本
-│
-├── public/                # Static frontend files / 前端静态文件
-│   ├── index.html         # Main schedule page / 主课程表页面
-│   ├── login.html         # Login page / 登录页
-│   ├── register.html      # Registration page / 注册页
-│   ├── admin.html         # Teacher admin dashboard / 教师管理后台
-│   ├── calendar.html      # Calendar subscription page / 日历订阅页
-│   ├── css/
-│   │   └── style.css      # Global styles / 全局样式
-│   └── js/
-│       ├── i18n.js        # Client i18n engine / 客户端国际化引擎
-│       ├── auth.js        # Auth logic (PIN + Google) / 认证逻辑
-│       ├── schedule.js    # Schedule rendering / 课程表渲染
-│       └── admin.js       # Admin panel logic / 管理后台逻辑
-│
-├── routes/                # API routes / API 路由
-│   ├── auth.js            # /api/auth/* (register, login, Google OAuth)
-│   ├── schedule.js        # /api/schedule/* (view & book classes)
-│   ├── admin.js           # /api/admin/* (teacher management)
-│   └── calendar.js        # /api/calendar/* (iCal subscription)
-│
-├── tests/                 # Test suite / 测试套件
-│   └── test-suite.js      # 61 automated tests / 61个自动化测试
-│
-└── docs/
-    └── screenshots/       # Documentation images / 文档截图
-```
-
----
-
-## 🚀 Quick Start / 快速开始
-
-### Prerequisites / 前置条件
-- **Node.js** ≥ 18.0.0
-- **npm** (included with Node.js)
-
-### Installation / 安装
+## 3. 快速开始
 
 ```bash
-# Clone the repository / 克隆仓库
 git clone https://github.com/zixiang2008/english-class-booking.git
 cd english-class-booking
-
-# Install dependencies / 安装依赖
 npm install
-
-# Start the server / 启动服务器
 npm start
 ```
 
-### Access the Application / 访问应用
+打开 http://localhost:3000
 
-| URL | Description |
-|-----|-------------|
-| `http://localhost:3000` | 📖 Student view / 学生界面 |
-| `http://localhost:3000/admin.html` | 🔧 Teacher admin / 教师管理后台 |
-
-### Default Teacher Account / 默认教师账号
-
-| Field | Value |
-|-------|-------|
-| Username / 用户名 | `teacher` |
-| Password / 密码 | `teacher123` |
+首次启动会自动创建 `booking.db`、建表、写入演示账号与 4 门示例课程。
 
 ---
 
-## ⚙️ Environment Variables / 环境变量
+## 4. 演示账号
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `PORT` | No | Server port (default: `3000`) / 服务端口 |
-| `NODE_ENV` | No | `production` for HTTPS cookies / 生产环境设置 |
-| `SESSION_SECRET` | Yes (prod) | Session encryption key / 会话加密密钥 |
-| `GOOGLE_CLIENT_ID` | No | Google OAuth Client ID / Google OAuth 客户端ID |
-| `GOOGLE_CLIENT_SECRET` | No | Google OAuth Secret / Google OAuth 密钥 |
-| `GOOGLE_REDIRECT_URI` | No | OAuth callback URL / OAuth 回调地址 |
+所有账号密码均为 **4 位数字 PIN**。
 
----
+| 角色 | 用户名 | PIN | 说明 |
+| --- | --- | --- | --- |
+| 老师 | `teacher` | `1111` | 示例课程 2 门 |
+| 老师 | `teacher2` | `2345` | 示例课程 2 门 |
+| 学生 | `student` | `1234` | 用于预约测试 |
 
-## ☁️ Deploy to Render / 部署到 Render
+> 从 v2 升级的旧数据库会自动把 `teacher` 的旧密码迁移为 `1111`。
 
-This project includes a `render.yaml` for one-click deployment:
-本项目包含 `render.yaml` 配置文件，支持一键部署：
-
-1. Fork this repository on GitHub / Fork 本仓库
-2. Go to [Render Dashboard](https://dashboard.render.com/) / 访问 Render 控制台
-3. Click **New** → **Blueprint** → Select your forked repo / 选择 Fork 的仓库
-4. Render will auto-detect `render.yaml` and deploy / Render 将自动检测配置并部署
-
-> **Note / 注意:** Free tier services spin down after 15 minutes of inactivity. The first request may take 30-60 seconds.
-> 免费计划的服务在闲置15分钟后会休眠，首次访问可能需要30-60秒。
+老师注册邀请码：`TEACHER2026`（通过 `TEACHER_INVITE_CODE` 环境变量修改）。
 
 ---
 
-## 🧪 Testing / 测试
+## 5. 环境变量
 
-```bash
-# Run all 61 tests / 运行全部61个测试
-npm test
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `PORT` | `3000` | 监听端口 |
+| `DB_PATH` | `./booking.db` | SQLite 文件路径，测试时指向临时文件即可隔离 |
+| `SESSION_SECRET` | 内置开发值 | 生产环境必须设置 |
+| `NODE_ENV` | 空 | 设为 `production` 时启用 secure + SameSite=None Cookie |
+| `TEACHER_INVITE_CODE` | `TEACHER2026` | 老师自助注册邀请码 |
+| `SITE_URL` | 自动推断 | 用于日历接口和启动日志的公开地址 |
+| `GOOGLE_CLIENT_ID` | 空 | 配置后启用 Google 登录 |
+| `GOOGLE_CLIENT_SECRET` | 空 | 同上 |
+| `GOOGLE_REDIRECT_URI` | 空 | 例如 `https://en.caishen.today/api/auth/google/callback` |
+
+---
+
+## 6. 目录结构
+
+```
+english-class-booking/
+├── server.js                 Express 入口，安全头、静态资源、路由挂载
+├── database.js               sql.js 封装、建表、迁移、演示数据
+├── i18n-server.js            服务端错误消息（en/zh/th/ja）
+├── lib/
+│   ├── time.js               时区换算、GMT 偏移、ICS/Google 日历、时间戳规范化
+│   ├── course-validation.js  课程字段校验（通知栏 100 字、Google Maps 必填等）
+│   └── guards.js             登录 / 老师 / 学生权限中间件
+├── routes/
+│   ├── auth.js               注册、登录、登出、Google OAuth
+│   ├── courses.js            课程 CRUD、状态、预约、更新历史
+│   ├── admin.js              工作台概览、实时预约、周表、学生
+│   ├── calendar.js           ICS 订阅、公开 JSON
+│   └── schedule.js           旧版循环周表接口
+├── public/
+│   ├── index.html            学生课程广场
+│   ├── admin.html            老师工作台
+│   ├── login.html            登录
+│   ├── register.html         注册（含老师邀请码）
+│   ├── calendar.html         日历订阅
+│   ├── css/style.css         v3 设计系统与响应式
+│   └── js/
+│       ├── i18n.js           原四语言引擎
+│       ├── i18n-v3.js        v3 词条（四种语言全覆盖）
+│       ├── common.js         共享 App 层：请求、toast、弹窗、导航、时间格式化
+│       ├── schedule.js       学生端逻辑
+│       ├── admin.js          老师端逻辑
+│       └── auth.js           登录/注册逻辑
+├── scripts/
+│   ├── check-i18n.js         i18n 静态审计
+│   └── ui-smoke.js           Chrome DevTools Protocol 真实浏览器冒烟测试
+└── tests/test-suite.js       接口 + 单元集成测试（自启动、隔离数据库）
 ```
 
 ---
 
-## 📄 API Endpoints / API 接口
+## 7. 数据模型
 
-### Auth / 认证
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/auth/register` | Register new student / 注册新学生 |
-| `POST` | `/api/auth/login` | Login with username & PIN / 用户名+PIN登录 |
-| `POST` | `/api/auth/logout` | Logout / 退出登录 |
-| `GET` | `/api/auth/me` | Get current user / 获取当前用户信息 |
-| `GET` | `/api/auth/google` | Start Google OAuth / 发起 Google 登录 |
-| `GET` | `/api/auth/google/callback` | Google OAuth callback / Google 回调 |
+```sql
+users            id, username, password_hash, display_name, phone, role, google_id
+schedule         id, day_of_week, time_slot, status, booked_by, booked_name   -- v2 周表
+courses          id, teacher_id, title, notice, notice_updated_at,
+                 timezone, lesson_date, start_time, end_time, start_utc, end_utc,
+                 place_name, google_maps_url, capacity, run_status, status_note,
+                 revision, created_at, updated_at
+course_bookings  id, course_id, student_id, status, created_at, cancelled_at
+course_updates   id, course_id, teacher_id, change_type, summary, created_at
+```
 
-### Schedule / 课程表
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/schedule` | Get weekly schedule / 获取周课程表 |
-| `POST` | `/api/schedule/book` | Book a time slot / 预约时间段 |
+关键设计：
 
-### Admin / 管理
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/admin/schedule` | Get full schedule (teacher) / 获取完整课程表 |
-| `POST` | `/api/admin/schedule/update` | Update slot status / 更新时间段状态 |
+- `start_time` / `end_time` 是老师本地墙钟时间，`timezone` 是 IANA 时区；
+- `start_utc` / `end_utc` 是服务端换算出的真实 UTC 时刻，所有排序、ICS、日历链接都基于它；
+- `run_status` 决定学生能否预约；
+- `revision` 大于 1 时前端显示「有更新」；
+- 数据库时间戳在返回前统一规范化为 ISO-8601 UTC（SQLite 的 `CURRENT_TIMESTAMP` 不带时区标记，浏览器会误判为本地时间）。
 
 ---
 
-## 📜 License / 许可证
+## 8. API
 
-This project is licensed under the **MIT License**.
-本项目采用 **MIT** 开源许可证。
+所有写操作返回 `{ success, message }` 或 `{ error }`；错误消息按 `X-Language` / `Accept-Language` 本地化。
+
+### 认证
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/api/auth/register` | 注册；带 `teacherCode` 则创建老师 |
+| POST | `/api/auth/login` | 用户名 + 4 位 PIN |
+| POST | `/api/auth/logout` | 登出 |
+| GET | `/api/auth/me` | 当前会话 |
+| GET | `/api/auth/config` | Google OAuth / 老师注册开关 |
+| GET | `/api/auth/google` | 发起 Google OAuth |
+| GET | `/api/auth/google/callback` | OAuth 回调 |
+
+### 课程
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/courses` | 公开 | 支持 `teacher=me|ID`、`status`、`q`、`mine=1` |
+| GET | `/api/courses/config` | 公开 | 时区列表、状态枚举、通知栏上限 |
+| GET | `/api/courses/teachers` | 公开 | 老师及其课程数 |
+| GET | `/api/courses/:id` | 公开 | 课程详情 + 更新 + 老师可见的预约 |
+| GET | `/api/courses/:id/updates` | 公开 | 更新历史 |
+| POST | `/api/courses` | 老师 | 发布课程 |
+| PUT | `/api/courses/:id` | 课程所属老师 | 编辑并记录变更 |
+| POST | `/api/courses/:id/status` | 课程所属老师 | 修改开课状态 |
+| DELETE | `/api/courses/:id` | 课程所属老师 | 删除课程及其预约 |
+| POST | `/api/courses/:id/book` | 学生 | 预约 |
+| POST | `/api/courses/:id/cancel` | 学生 / 所属老师 | 取消预约 |
+
+### 工作台
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/admin/overview` | 课程数、确认/待确认、预约数、学生数、老师数 |
+| GET | `/api/admin/bookings` | 当前老师的实时预约流 |
+| GET | `/api/admin/schedule` | 周表全部时段 |
+| POST | `/api/admin/update-slot` | 设置时段可用性 |
+| POST | `/api/admin/remove-booking` | 释放时段 |
+| GET | `/api/admin/students` | 学生列表 |
+
+### 日历
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/calendar/schedule.ics` | ICS 订阅（课程为 UTC 事件，含地点、地图、通知） |
+| GET | `/api/calendar/schedule` | 公开只读 JSON |
+| GET | `/api/calendar/info` | 订阅地址与隐私说明 |
+
+### 其他
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/healthz` | `{ ok: true, version: "3.0.0" }` |
 
 ---
 
-<div align="center">
+## 9. 测试
 
-**Made with ❤️ for English Education**
-**为英语教育而生 ❤️**
+```bash
+npm test              # 62 项：单元 + 接口全链路，自启动隔离数据库
+npm run check:i18n    # 校验所有被引用的词条在四种语言中都存在
+npm run test:ui       # 真实浏览器冒烟（需先启动服务）
+npm run check         # i18n + 语法 + 集成测试
+```
 
-[⬆ Back to Top / 返回顶部](#-english-class-booking-system)
+`npm test` 会自行在随机端口启动服务，使用临时数据库，不会污染 `booking.db`。
 
-</div>
+浏览器冒烟测试使用本机 Chrome 的 DevTools Protocol，无需额外依赖：
+
+```bash
+PORT=3210 DB_PATH=/tmp/ecb-browser.db node server.js   # 终端 1
+BASE=http://127.0.0.1:3210 node scripts/ui-smoke.js    # 终端 2
+```
+
+覆盖：课程卡片渲染、通知栏、谷歌地址栏、时区徽章、多老师、语言切换、登录、教师工作台、发布表单必填项与 100 字计数器、日历页、手机视口无横向溢出与触控尺寸、JS 异常、HTTP 失败请求。截图输出到系统临时目录。
+
+---
+
+## 10. 部署
+
+### 10.1 Render
+
+仓库内 `render.yaml` 已配置：
+
+- `buildCommand: npm install`
+- `startCommand: node server.js`
+- `NODE_ENV=production`
+- `SESSION_SECRET` 自动生成
+- `TEACHER_INVITE_CODE` 默认 `TEACHER2026`，上线前请修改
+
+注意：Render 免费实例的文件系统是临时的，`booking.db` 会在重新部署后重置。需要持久化时请挂载磁盘或改用外部数据库。
+
+### 10.2 本机 + Cloudflare Tunnel（`en.caishen.today`）
+
+本机已创建隧道 `english-class-booking`：
+
+```
+Tunnel ID : 02e615a5-3b68-4052-9d03-45c7544f855d
+配置      : ~/.cloudflared/english-class-booking.yml
+入口      : http://localhost:3000
+```
+
+启动：
+
+```bash
+# 终端 1：应用
+cd /Volumes/OS2App/AiColding/english-class-booking
+NODE_ENV=production PORT=3000 SITE_URL=https://en.caishen.today \
+SESSION_SECRET='请替换为随机字符串' TEACHER_INVITE_CODE='TEACHER2026' node server.js
+
+# 终端 2：隧道
+cloudflared tunnel --config ~/.cloudflared/english-class-booking.yml run english-class-booking
+```
+
+**还需要在 `caishen.today` 所属的 Cloudflare 账号添加一条 DNS 记录**（当前 `cloudflared` 登录的是另一个 Cloudflare 账号，无法代写该区域的记录）：
+
+| 类型 | 名称 | 目标 | 代理状态 |
+| --- | --- | --- | --- |
+| CNAME | `en` | `02e615a5-3b68-4052-9d03-45c7544f855d.cfargotunnel.com` | 已代理（橙色云） |
+
+添加后 `https://en.caishen.today` 即可访问。
+
+另外，执行 `cloudflared tunnel route dns` 时曾在 `ai1996.cloudns.org` 区域误建一条名为 `en.caishen.today` 的记录，如不再需要请在 Cloudflare 面板删除。
+
+开机自启（可选，两个 plist 已放在 `~/Library/LaunchAgents/`）：
+
+```bash
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.caishen.english-class-booking.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.caishen.english-class-booking-tunnel.plist
+
+# 停止并移除
+launchctl bootout gui/$(id -u)/com.caishen.english-class-booking
+launchctl bootout gui/$(id -u)/com.caishen.english-class-booking-tunnel
+```
+
+日志：`~/Library/Logs/english-class-booking/`
+
+### 10.3 仅本机域名（不经过公网）
+
+需要一次 sudo 操作，把域名指向本机：
+
+```bash
+sudo sh -c 'printf "\n127.0.0.1 en.caishen.today\n" >> /etc/hosts'
+```
+
+然后访问 `http://en.caishen.today:3000`（应用监听 3000，非 80 端口）。
+
+---
+
+## 11. 时间与时区如何工作
+
+1. 老师填写本地日期、开始/结束时间和 IANA 时区（如 `Asia/Bangkok`）。
+2. 服务端用 `Intl.DateTimeFormat` 计算该时区在当天的 UTC 偏移，做两到三轮迭代收敛（可跨夏令时），得到 `start_utc` / `end_utc`。
+3. 学生端用 `Intl.DateTimeFormat` 把同一个 UTC 时刻渲染两次：
+   - 老师当地时间 + 时区缩写
+   - 学生浏览器当地时间 + 本地时区名
+4. ICS 与 Google Calendar 链接使用 `YYYYMMDDTHHMMSSZ` 形式的真实 UTC，订阅者不会看到「浮动时间」。
+
+已验证的边界：
+
+- `Asia/Bangkok` 10:00 → `03:00Z`（GMT+7）
+- `America/New_York` 夏季 09:00 → `13:00Z`（EDT）
+- `America/New_York` 冬季 09:00 → `14:00Z`（EST）
+
+---
+
+## 12. 隐私与安全
+
+- 密码使用 bcrypt 哈希；会话 Cookie 为 `httpOnly`，生产环境 `secure` + `SameSite=None`。
+- 课程列表公开可见，但学生名单只对课程所属老师可见。
+- 公开日历只暴露课程状态、时间、地点、地图链接、通知栏和老师姓名；学生姓名在旧周表中仅显示首字母。
+- Google Maps 地址必须是 `https` 且属于 Google 域名，防止任意链接注入。
+- 通知栏长度在服务端和前端双重限制为 100 字。
+- 所有课程写操作校验 `teacher_id` 归属。
+
+---
+
+## 13. 版本历史
+
+- **v3.0.0**（当前）
+  - 课程中心模型、多老师发布、通知栏、谷歌地址栏
+  - 真实 UTC 时间与时区展示、ICS / Google Calendar
+  - 学生预约、老师实时预约看板、开课状态、更新历史
+  - v3 设计系统、移动端适配、四语言词条补全
+  - 62 项集成测试 + 34 项浏览器冒烟测试
+- **v2.0.0**
+  - 4 位 PIN 登录、Google OAuth、四语言、周表管理
+- **v1.0.0**
+  - 初始版本：单一老师周课表
+
+---
+
+## 14. 许可
+
+MIT

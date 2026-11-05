@@ -1,618 +1,480 @@
 /**
- * ============================
- * Test Suite for English Class Booking System
- * White-box + Black-box Tests
- * ============================
+ * v3 integration test suite — self-contained.
+ *
+ * Boots the real Express app against an isolated temporary SQLite database on a
+ * free port, then exercises auth, multi-teacher publishing, notice board rules,
+ * the required Google Maps address, real UTC/timezone conversion, booking,
+ * live teacher dashboards, status changes, update history, calendar feeds,
+ * i18n errors and static pages.
+ *
+ * Run: npm test
  */
-
-const http = require('http');
 const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
-const BASE = 'http://localhost:3000';
+const dbPath = path.join(os.tmpdir(), `ecb-test-${process.pid}-${Date.now()}.db`);
+const port = 3400 + (process.pid % 400);
+process.env.DB_PATH = dbPath;
+process.env.PORT = String(port);
+process.env.SESSION_SECRET = 'integration-test-secret';
+process.env.TEACHER_INVITE_CODE = 'TEACHER2026';
+delete process.env.NODE_ENV; // keep session cookies non-secure over http
 
-// Helper: make HTTP request
-function request(method, path, body = null, headers = {}, cookies = '') {
-    return new Promise((resolve, reject) => {
-        const url = new URL(path, BASE);
-        const options = {
-            hostname: url.hostname,
-            port: url.port,
-            path: url.pathname + url.search,
-            method,
-            headers: {
-                ...headers,
-                ...(body ? { 'Content-Type': 'application/json' } : {}),
-                ...(cookies ? { 'Cookie': cookies } : {}),
-            }
-        };
+const { startServer } = require('../server');
+const { zonedTimeToUtc, toICSUTC, gmtOffsetLabel } = require('../lib/time');
+const { validateCourse, isGoogleMapsUrl, MAX_NOTICE_LENGTH } = require('../lib/course-validation');
 
-        const req = http.request(options, (res) => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-                let json = null;
-                try { json = JSON.parse(data); } catch (e) { }
-                resolve({
-                    status: res.statusCode,
-                    headers: res.headers,
-                    data,
-                    json,
-                    cookies: (res.headers['set-cookie'] || []).join('; ')
-                });
-            });
-        });
-
-        req.on('error', reject);
-        if (body) req.write(JSON.stringify(body));
-        req.end();
-    });
-}
-
-// Extract session cookie
-function extractSessionCookie(setCookie) {
-    if (!setCookie) return '';
-    const match = setCookie.match(/connect\.sid=[^;]+/);
-    return match ? match[0] : '';
-}
-
+let BASE = '';
 let passed = 0;
 let failed = 0;
-let errors = [];
-
-function ok(testName) {
-    passed++;
-    console.log(`  ✅ ${testName}`);
-}
-
-function fail(testName, error) {
-    failed++;
-    const msg = `  ❌ ${testName}: ${error}`;
-    errors.push(msg);
-    console.log(msg);
-}
+const failures = [];
 
 async function test(name, fn) {
-    try {
-        await fn();
-        ok(name);
-    } catch (e) {
-        fail(name, e.message);
+  try {
+    await fn();
+    passed++;
+    console.log(`  ✅ ${name}`);
+  } catch (err) {
+    failed++;
+    failures.push({ name, message: err.message });
+    console.log(`  ❌ ${name}\n     ${err.message}`);
+  }
+}
+
+function client(lang) {
+  let cookie = '';
+  const headersFor = (body, extra) => {
+    const h = { ...(extra || {}) };
+    if (lang) h['X-Language'] = lang;
+    if (body !== undefined) h['Content-Type'] = 'application/json';
+    if (cookie) h.Cookie = cookie;
+    return h;
+  };
+  const call = async (method, url, body, extra) => {
+    const res = await fetch(BASE + url, {
+      method,
+      headers: headersFor(body, extra),
+      body: body === undefined ? undefined : JSON.stringify(body),
+      redirect: 'manual'
+    });
+    const setCookie = res.headers.get('set-cookie');
+    if (setCookie) {
+      const m = setCookie.match(/connect\.sid=[^;]+/);
+      if (m) cookie = m[0];
     }
+    const text = await res.text();
+    let data = text;
+    try { data = text ? JSON.parse(text) : null; } catch (_) { /* keep raw text */ }
+    return { status: res.status, data, text, headers: res.headers };
+  };
+  return {
+    cookie: () => cookie,
+    clearCookie: () => { cookie = ''; },
+    get: (u, h) => call('GET', u, undefined, h),
+    post: (u, b, h) => call('POST', u, b === undefined ? {} : b, h),
+    put: (u, b, h) => call('PUT', u, b === undefined ? {} : b, h),
+    del: (u, h) => call('DELETE', u, undefined, h)
+  };
 }
 
-// ============================
-// TEST MODULES
-// ============================
+const validCourse = (overrides = {}) => ({
+  title: 'Integration Test Class',
+  notice: 'Bring your notebook. 请带课本。',
+  timezone: 'Asia/Bangkok',
+  lesson_date: '2026-12-01',
+  start_time: '09:00',
+  end_time: '10:00',
+  place_name: 'Test Studio, Bangkok',
+  google_maps_url: 'https://maps.app.goo.gl/AbCdEf12345',
+  capacity: 3,
+  run_status: 'confirmed',
+  status_note: '',
+  ...overrides
+});
 
-async function testAuth() {
-    console.log('\n🔐 AUTH MODULE TESTS');
-    console.log('─'.repeat(50));
+async function main() {
+  const server = await startServer();
+  BASE = `http://127.0.0.1:${server.address().port}`;
 
-    // 1. Register with valid data
-    await test('Register new student', async () => {
-        const res = await request('POST', '/api/auth/register', {
-            username: `test_user_${Date.now()}`,
-            password: 'test1234',
-            displayName: 'Test Student',
-            phone: '0812345678'
-        });
-        assert.strictEqual(res.status, 200);
-        assert.strictEqual(res.json.success, true);
-        assert.strictEqual(res.json.user.role, 'student');
+  const anon = client();
+  const teacher = client();
+  const teacher2 = client();
+  const student = client();
+  const student2 = client();
+  const zh = client('zh');
+
+  let courseId = null;
+
+  console.log('\n── Unit: time & validation ──────────────────────────────');
+  await test('zonedTimeToUtc: Bangkok 10:00 → 03:00Z', () => {
+    assert.strictEqual(zonedTimeToUtc('2026-11-06', '10:00', 'Asia/Bangkok').toISOString(), '2026-11-06T03:00:00.000Z');
+  });
+  await test('zonedTimeToUtc: New York summer (EDT) 09:00 → 13:00Z', () => {
+    assert.strictEqual(zonedTimeToUtc('2026-07-01', '09:00', 'America/New_York').toISOString(), '2026-07-01T13:00:00.000Z');
+  });
+  await test('zonedTimeToUtc: New York winter (EST) 09:00 → 14:00Z', () => {
+    assert.strictEqual(zonedTimeToUtc('2026-01-15', '09:00', 'America/New_York').toISOString(), '2026-01-15T14:00:00.000Z');
+  });
+  await test('toICSUTC / gmtOffsetLabel formatting', () => {
+    assert.strictEqual(toICSUTC('2026-11-06T03:00:00.000Z'), '20261106T030000Z');
+    assert.strictEqual(gmtOffsetLabel('Asia/Bangkok', new Date('2026-11-06T03:00:00Z')), 'GMT+7');
+  });
+  await test('isGoogleMapsUrl accepts only real Google Maps HTTPS links', () => {
+    assert.ok(isGoogleMapsUrl('https://maps.app.goo.gl/abc123'));
+    assert.ok(isGoogleMapsUrl('https://www.google.com/maps/place/Bangkok'));
+    assert.ok(isGoogleMapsUrl('https://google.co.th/maps/search/cafe'));
+    assert.ok(!isGoogleMapsUrl('http://maps.google.com/maps/place/x'));
+    assert.ok(!isGoogleMapsUrl('https://example.com/maps'));
+    assert.ok(!isGoogleMapsUrl('https://evilgoogle.com/maps'));
+    assert.ok(!isGoogleMapsUrl(''));
+  });
+  await test('notice board is capped at 100 characters', () => {
+    assert.strictEqual(MAX_NOTICE_LENGTH, 100);
+    assert.ok(validateCourse(validCourse({ notice: '字'.repeat(100) })).ok);
+    const bad = validateCourse(validCourse({ notice: '字'.repeat(101) }));
+    assert.ok(!bad.ok && bad.fields.notice);
+  });
+  await test('Google Maps address is mandatory and end time must follow start', () => {
+    const noMap = validateCourse(validCourse({ google_maps_url: '' }));
+    assert.ok(!noMap.ok && noMap.fields.google_maps_url === 'googleRequired');
+    const badTime = validateCourse(validCourse({ start_time: '11:00', end_time: '10:00' }));
+    assert.ok(!badTime.ok && badTime.fields.time);
+  });
+  await test('valid course produces a real UTC instant', () => {
+    const r = validateCourse(validCourse());
+    assert.ok(r.ok, JSON.stringify(r.fields));
+    assert.strictEqual(r.value.start_utc, '2026-12-01T02:00:00.000Z');
+    assert.strictEqual(r.value.end_utc, '2026-12-01T03:00:00.000Z');
+  });
+
+  console.log('\n── Health, static pages & auth ───────────────────────────');
+  await test('GET /healthz reports v3', async () => {
+    const r = await anon.get('/healthz');
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.data.version, '3.0.0');
+  });
+  for (const page of ['/', '/admin.html', '/login.html', '/register.html', '/calendar.html']) {
+    await test(`static page ${page} returns 200 HTML`, async () => {
+      const r = await anon.get(page);
+      assert.strictEqual(r.status, 200);
+      assert.ok(/<!DOCTYPE html>/i.test(r.text));
     });
-
-    // 2. Register with missing fields
-    await test('Register with missing fields returns 400', async () => {
-        const res = await request('POST', '/api/auth/register', {
-            username: 'incomplete'
-        });
-        assert.strictEqual(res.status, 400);
-        assert.ok(res.json.error);
-    });
-
-    // 3. Register with short password
-    await test('Register with short password returns 400', async () => {
-        const res = await request('POST', '/api/auth/register', {
-            username: `short_pw_${Date.now()}`,
-            password: '12',
-            displayName: 'ShortPW'
-        });
-        assert.strictEqual(res.status, 400);
-    });
-
-    // 4. Register duplicate username
-    await test('Register duplicate username returns 400', async () => {
-        const uname = `dup_${Date.now()}`;
-        await request('POST', '/api/auth/register', {
-            username: uname,
-            password: 'test1234',
-            displayName: 'Dup1'
-        });
-        const res = await request('POST', '/api/auth/register', {
-            username: uname,
-            password: 'test1234',
-            displayName: 'Dup2'
-        });
-        assert.strictEqual(res.status, 400);
-    });
-
-    // 5. Login with correct credentials
-    await test('Login with correct credentials', async () => {
-        const res = await request('POST', '/api/auth/login', {
-            username: 'teacher',
-            password: 'teacher123'
-        });
-        assert.strictEqual(res.status, 200);
-        assert.strictEqual(res.json.success, true);
-        assert.strictEqual(res.json.user.role, 'teacher');
-    });
-
-    // 6. Login with wrong password
-    await test('Login with wrong password returns 401', async () => {
-        const res = await request('POST', '/api/auth/login', {
-            username: 'teacher',
-            password: 'wrongpassword'
-        });
-        assert.strictEqual(res.status, 401);
-    });
-
-    // 7. Login with non-existent user
-    await test('Login with non-existent user returns 401', async () => {
-        const res = await request('POST', '/api/auth/login', {
-            username: 'nonexistent_user_xyz',
-            password: 'whatever'
-        });
-        assert.strictEqual(res.status, 401);
-    });
-
-    // 8. Login with missing fields
-    await test('Login with missing fields returns 400', async () => {
-        const res = await request('POST', '/api/auth/login', {});
-        assert.strictEqual(res.status, 400);
-    });
-
-    // 9. Get current user (not logged in)
-    await test('GET /me when not logged in', async () => {
-        const res = await request('GET', '/api/auth/me');
-        assert.strictEqual(res.json.loggedIn, false);
-    });
-
-    // 10. Get current user (logged in)
-    await test('GET /me after login returns user', async () => {
-        const loginRes = await request('POST', '/api/auth/login', {
-            username: 'teacher',
-            password: 'teacher123'
-        });
-        const cookie = extractSessionCookie(loginRes.cookies);
-        const res = await request('GET', '/api/auth/me', null, {}, cookie);
-        assert.strictEqual(res.json.loggedIn, true);
-        assert.strictEqual(res.json.user.role, 'teacher');
-    });
-
-    // 11. Logout
-    await test('Logout clears session', async () => {
-        const loginRes = await request('POST', '/api/auth/login', {
-            username: 'teacher',
-            password: 'teacher123'
-        });
-        const cookie = extractSessionCookie(loginRes.cookies);
-        await request('POST', '/api/auth/logout', null, {}, cookie);
-        // After logout, /me should show not logged in
-        const res = await request('GET', '/api/auth/me', null, {}, cookie);
-        assert.strictEqual(res.json.loggedIn, false);
-    });
-}
-
-async function testSchedule() {
-    console.log('\n📅 SCHEDULE MODULE TESTS');
-    console.log('─'.repeat(50));
-
-    // 1. Get schedule (public)
-    await test('GET /api/schedule returns data', async () => {
-        const res = await request('GET', '/api/schedule');
-        assert.strictEqual(res.status, 200);
-        assert.ok(res.json.timeSlots);
-        assert.ok(res.json.days);
-        assert.ok(res.json.schedule);
-        assert.ok(res.json.timeSlots.length >= 7, `Expected at least 7 time slots, got ${res.json.timeSlots.length}`);
-        assert.strictEqual(res.json.days.length, 7);
-    });
-
-    // 2. Book without auth
-    await test('Book without auth returns 401', async () => {
-        const res = await request('POST', '/api/schedule/book', { slotId: 1 });
-        assert.strictEqual(res.status, 401);
-    });
-
-    // 3. Cancel without auth
-    await test('Cancel without auth returns 401', async () => {
-        const res = await request('POST', '/api/schedule/cancel', { slotId: 1 });
-        assert.strictEqual(res.status, 401);
-    });
-
-    // 4. Teacher cannot book
-    await test('Teacher cannot book returns 403', async () => {
-        const loginRes = await request('POST', '/api/auth/login', {
-            username: 'teacher',
-            password: 'teacher123'
-        });
-        const cookie = extractSessionCookie(loginRes.cookies);
-        const res = await request('POST', '/api/schedule/book', { slotId: 1 }, {}, cookie);
-        assert.strictEqual(res.status, 403);
-    });
-
-    // 5. Book without slotId
-    await test('Book without slotId returns 400', async () => {
-        // Register a student
-        const regRes = await request('POST', '/api/auth/register', {
-            username: `student_book_${Date.now()}`,
-            password: 'test1234',
-            displayName: 'BookTest'
-        });
-        const cookie = extractSessionCookie(regRes.cookies);
-        const res = await request('POST', '/api/schedule/book', {}, {}, cookie);
-        assert.strictEqual(res.status, 400);
-    });
-
-    // 6. Book non-existent slot
-    await test('Book non-existent slot returns 404', async () => {
-        const regRes = await request('POST', '/api/auth/register', {
-            username: `student_ne_${Date.now()}`,
-            password: 'test1234',
-            displayName: 'NETest'
-        });
-        const cookie = extractSessionCookie(regRes.cookies);
-        const res = await request('POST', '/api/schedule/book', { slotId: 99999 }, {}, cookie);
-        assert.strictEqual(res.status, 404);
-    });
-}
-
-async function testAdmin() {
-    console.log('\n👩‍🏫 ADMIN MODULE TESTS');
-    console.log('─'.repeat(50));
-
-    // 1. Admin schedule without auth
-    await test('Admin schedule without auth returns 403', async () => {
-        const res = await request('GET', '/api/admin/schedule');
-        assert.strictEqual(res.status, 403);
-    });
-
-    // 2. Admin schedule with student auth
-    await test('Admin schedule with student returns 403', async () => {
-        const regRes = await request('POST', '/api/auth/register', {
-            username: `student_admin_${Date.now()}`,
-            password: 'test1234',
-            displayName: 'AdminTest'
-        });
-        const cookie = extractSessionCookie(regRes.cookies);
-        const res = await request('GET', '/api/admin/schedule', null, {}, cookie);
-        assert.strictEqual(res.status, 403);
-    });
-
-    // 3. Admin schedule with teacher auth
-    await test('Admin schedule with teacher returns data', async () => {
-        const loginRes = await request('POST', '/api/auth/login', {
-            username: 'teacher',
-            password: 'teacher123'
-        });
-        const cookie = extractSessionCookie(loginRes.cookies);
-        const res = await request('GET', '/api/admin/schedule', null, {}, cookie);
-        assert.strictEqual(res.status, 200);
-        assert.ok(res.json.timeSlots);
-        assert.ok(res.json.slots);
-    });
-
-    // 4. Update slot without auth
-    await test('Update slot without auth returns 403', async () => {
-        const res = await request('POST', '/api/admin/update-slot', { slotId: 1, status: 'available' });
-        assert.strictEqual(res.status, 403);
-    });
-
-    // 5. Update slot with invalid status
-    await test('Update slot with invalid status returns 400', async () => {
-        const loginRes = await request('POST', '/api/auth/login', {
-            username: 'teacher',
-            password: 'teacher123'
-        });
-        const cookie = extractSessionCookie(loginRes.cookies);
-        const res = await request('POST', '/api/admin/update-slot', { slotId: 1, status: 'invalid' }, {}, cookie);
-        assert.strictEqual(res.status, 400);
-    });
-
-    // 6. Update slot with missing params
-    await test('Update slot with missing params returns 400', async () => {
-        const loginRes = await request('POST', '/api/auth/login', {
-            username: 'teacher',
-            password: 'teacher123'
-        });
-        const cookie = extractSessionCookie(loginRes.cookies);
-        const res = await request('POST', '/api/admin/update-slot', {}, {}, cookie);
-        assert.strictEqual(res.status, 400);
-    });
-
-    // 7. Get students with teacher auth
-    await test('Get students with teacher auth succeeds', async () => {
-        const loginRes = await request('POST', '/api/auth/login', {
-            username: 'teacher',
-            password: 'teacher123'
-        });
-        const cookie = extractSessionCookie(loginRes.cookies);
-        const res = await request('GET', '/api/admin/students', null, {}, cookie);
-        assert.strictEqual(res.status, 200);
-        assert.ok(Array.isArray(res.json));
-    });
-
-    // 8. Get students without auth
-    await test('Get students without auth returns 403', async () => {
-        const res = await request('GET', '/api/admin/students');
-        assert.strictEqual(res.status, 403);
-    });
-}
-
-async function testCalendar() {
-    console.log('\n📆 CALENDAR MODULE TESTS');
-    console.log('─'.repeat(50));
-
-    // 1. ICS feed returns valid calendar
-    await test('GET /api/calendar/schedule.ics returns ICS', async () => {
-        const res = await request('GET', '/api/calendar/schedule.ics');
-        assert.strictEqual(res.status, 200);
-        assert.ok(res.headers['content-type'].includes('text/calendar'));
-        assert.ok(res.data.includes('BEGIN:VCALENDAR'));
-        assert.ok(res.data.includes('END:VCALENDAR'));
-        assert.ok(res.data.includes('BEGIN:VEVENT'));
-    });
-
-    // 2. ICS has proper timezone
-    await test('ICS contains Asia/Bangkok timezone', async () => {
-        const res = await request('GET', '/api/calendar/schedule.ics');
-        assert.ok(res.data.includes('TZID:Asia/Bangkok'));
-        assert.ok(res.data.includes('X-WR-TIMEZONE:Asia/Bangkok'));
-    });
-
-    // 3. ICS has privacy-safe names (initials only)
-    await test('ICS shows only initials for privacy', async () => {
-        const res = await request('GET', '/api/calendar/schedule.ics');
-        // Should contain abbreviated names like "M." not full names
-        const lines = res.data.split('\n');
-        const summaryLines = lines.filter(l => l.startsWith('SUMMARY:') && l.includes('Booked'));
-        for (const line of summaryLines) {
-            // format: "📚 Booked - X."  (1 letter + period)
-            const match = line.match(/Booked - (.+)/);
-            if (match) {
-                assert.ok(match[1].length <= 3, `Name not abbreviated: ${match[1]}`);
-            }
-        }
-    });
-
-    // 4. Public schedule JSON
-    await test('GET /api/calendar/schedule returns JSON', async () => {
-        const res = await request('GET', '/api/calendar/schedule');
-        assert.strictEqual(res.status, 200);
-        assert.ok(res.json.timeSlots);
-        assert.ok(res.json.schedule);
-        assert.ok(res.json.subscribeUrl);
-    });
-
-    // 5. Calendar info endpoint
-    await test('GET /api/calendar/info returns info', async () => {
-        const res = await request('GET', '/api/calendar/info');
-        assert.strictEqual(res.status, 200);
-        assert.ok(res.json.icsSubscriptionUrl);
-        assert.ok(res.json.instructions);
-        assert.ok(res.json.privacy);
-    });
-}
-
-async function testI18n() {
-    console.log('\n🌐 I18N MODULE TESTS');
-    console.log('─'.repeat(50));
-
-    // 1. Server responds with Chinese error when Accept-Language is zh
-    await test('Server i18n: Chinese error message', async () => {
-        const res = await request('POST', '/api/auth/login', {}, { 'Accept-Language': 'zh-CN' });
-        assert.strictEqual(res.status, 400);
-        // Should contain Chinese characters
-        assert.ok(/[\u4e00-\u9fff]/.test(res.json.error), `Expected Chinese error, got: ${res.json.error}`);
-    });
-
-    // 2. Server responds with Thai error  
-    await test('Server i18n: Thai error message', async () => {
-        const res = await request('POST', '/api/auth/login', {}, { 'Accept-Language': 'th' });
-        assert.strictEqual(res.status, 400);
-        assert.ok(/[\u0e00-\u0e7f]/.test(res.json.error), `Expected Thai error, got: ${res.json.error}`);
-    });
-
-    // 3. Server responds with Japanese error
-    await test('Server i18n: Japanese error message', async () => {
-        const res = await request('POST', '/api/auth/login', {}, { 'Accept-Language': 'ja' });
-        assert.strictEqual(res.status, 400);
-        assert.ok(/[\u3000-\u9fff]/.test(res.json.error), `Expected Japanese error, got: ${res.json.error}`);
-    });
-
-    // 4. Server responds with English error for unknown lang
-    await test('Server i18n: English fallback for unknown language', async () => {
-        const res = await request('POST', '/api/auth/login', {}, { 'Accept-Language': 'xx-XX' });
-        assert.strictEqual(res.status, 400);
-        assert.ok(/[a-zA-Z]/.test(res.json.error), `Expected English error, got: ${res.json.error}`);
-    });
-
-    // 5. Custom X-Language header
-    await test('Server i18n: X-Language header overrides Accept-Language', async () => {
-        const res = await request('POST', '/api/auth/login', {}, {
-            'Accept-Language': 'en',
-            'X-Language': 'zh'
-        });
-        assert.strictEqual(res.status, 400);
-        assert.ok(/[\u4e00-\u9fff]/.test(res.json.error), `Expected Chinese from X-Language, got: ${res.json.error}`);
-    });
-}
-
-async function testStaticPages() {
-    console.log('\n📄 STATIC PAGE TESTS');
-    console.log('─'.repeat(50));
-
-    const pages = [
-        { path: '/', name: 'Homepage' },
-        { path: '/login.html', name: 'Login Page' },
-        { path: '/register.html', name: 'Register Page' },
-        { path: '/admin.html', name: 'Admin Page' },
-        { path: '/calendar.html', name: 'Calendar Page' },
-    ];
-
-    for (const page of pages) {
-        await test(`${page.name} loads (200)`, async () => {
-            const res = await request('GET', page.path);
-            assert.strictEqual(res.status, 200);
-            assert.ok(res.data.includes('<!DOCTYPE html>') || res.data.includes('<!doctype html>'));
-        });
-
-        await test(`${page.name} includes i18n.js`, async () => {
-            const res = await request('GET', page.path);
-            assert.ok(res.data.includes('/js/i18n.js'), `${page.name} missing i18n.js`);
-        });
-
-        await test(`${page.name} has data-i18n attributes`, async () => {
-            const res = await request('GET', page.path);
-            assert.ok(res.data.includes('data-i18n='), `${page.name} missing data-i18n`);
-        });
+  }
+  await test('auth config advertises teacher invite registration', async () => {
+    const r = await anon.get('/api/auth/config');
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.data.teacherRegistrationEnabled, true);
+    assert.strictEqual(r.data.teacherInviteCodeRequired, true);
+  });
+  await test('anonymous /api/auth/me is logged out', async () => {
+    const r = await anon.get('/api/auth/me');
+    assert.strictEqual(r.data.loggedIn, false);
+  });
+  await test('login rejects a wrong PIN', async () => {
+    const r = await anon.post('/api/auth/login', { username: 'teacher', password: '9999' });
+    assert.strictEqual(r.status, 401);
+  });
+  await test('demo accounts use 4-digit PINs (teacher 1111, teacher2 2345, student 1234)', async () => {
+    for (const [c, u, p] of [[teacher, 'teacher', '1111'], [teacher2, 'teacher2', '2345'], [student, 'student', '1234']]) {
+      const r = await c.post('/api/auth/login', { username: u, password: p });
+      assert.strictEqual(r.status, 200, `${u}: ${JSON.stringify(r.data)}`);
+      assert.strictEqual(r.data.success, true);
     }
-
-    // CSS and JS files load
-    await test('CSS file loads', async () => {
-        const res = await request('GET', '/css/style.css');
-        assert.strictEqual(res.status, 200);
+  });
+  await test('/api/auth/me reflects role for each session', async () => {
+    assert.strictEqual((await teacher.get('/api/auth/me')).data.user.role, 'teacher');
+    assert.strictEqual((await student.get('/api/auth/me')).data.user.role, 'student');
+  });
+  await test('registration requires a 4-digit PIN', async () => {
+    const r = await client().post('/api/auth/register', { username: 'badpin', password: 'test1234', displayName: 'Bad PIN' });
+    assert.strictEqual(r.status, 400);
+  });
+  await test('student registration works and starts a session', async () => {
+    const r = await student2.post('/api/auth/register', {
+      username: 'student2', password: '5678', displayName: 'Second Student', phone: '0800000000'
     });
-
-    await test('i18n.js loads', async () => {
-        const res = await request('GET', '/js/i18n.js');
-        assert.strictEqual(res.status, 200);
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.data.user.role, 'student');
+    assert.strictEqual((await student2.get('/api/auth/me')).data.loggedIn, true);
+  });
+  await test('wrong teacher invite code is rejected', async () => {
+    const r = await client().post('/api/auth/register', {
+      username: 'badteacher', password: '4321', displayName: 'Nope', teacherCode: 'WRONG'
     });
-
-    await test('schedule.js loads', async () => {
-        const res = await request('GET', '/js/schedule.js');
-        assert.strictEqual(res.status, 200);
+    assert.strictEqual(r.status, 400);
+  });
+  await test('correct teacher invite code creates a second teacher', async () => {
+    const r = await client().post('/api/auth/register', {
+      username: 'teacher3', password: '3456', displayName: 'Teacher Three', teacherCode: 'TEACHER2026'
     });
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.data.user.role, 'teacher');
+  });
+  await test('logout destroys the session', async () => {
+    const c = client();
+    await c.post('/api/auth/login', { username: 'student', password: '1234' });
+    assert.strictEqual((await c.get('/api/auth/me')).data.loggedIn, true);
+    await c.post('/api/auth/logout');
+    assert.strictEqual((await c.get('/api/auth/me')).data.loggedIn, false);
+  });
 
-    await test('admin.js loads', async () => {
-        const res = await request('GET', '/js/admin.js');
-        assert.strictEqual(res.status, 200);
-    });
+  console.log('\n── Course config, multi-teacher board & permissions ───────');
+  await test('/api/courses/config exposes timezones + 100-char limit', async () => {
+    const r = await anon.get('/api/courses/config');
+    assert.strictEqual(r.status, 200);
+    assert.ok(r.data.timezones.includes('Asia/Bangkok'));
+    assert.strictEqual(r.data.maxNoticeLength, 100);
+    assert.deepStrictEqual(r.data.runStatuses, ['pending', 'confirmed', 'cancelled', 'completed']);
+  });
+  await test('at least three teachers are listed (multi-teacher board)', async () => {
+    const r = await anon.get('/api/courses/teachers');
+    assert.strictEqual(r.status, 200);
+    assert.ok(r.data.teachers.length >= 3);
+  });
+  await test('demo seed has courses from two different teachers', async () => {
+    const r = await anon.get('/api/courses');
+    assert.strictEqual(r.status, 200);
+    const ids = new Set(r.data.courses.map(c => c.teacher_id));
+    assert.ok(ids.size >= 2);
+    assert.ok(r.data.courses.every(c => c.google_maps_url && c.timezone && c.start_utc));
+  });
+  await test('anonymous publishing is rejected', async () => {
+    const r = await anon.post('/api/courses', validCourse());
+    assert.strictEqual(r.status, 401);
+  });
+  await test('students cannot publish classes', async () => {
+    const r = await student.post('/api/courses', validCourse());
+    assert.strictEqual(r.status, 403);
+  });
+  await test('API errors honour the requested language (zh)', async () => {
+    const r = await zh.post('/api/courses', validCourse());
+    assert.strictEqual(r.status, 401);
+    assert.ok(/[\u4e00-\u9fa5]/.test(r.data.error), `expected Chinese, got: ${r.data.error}`);
+  });
 
-    await test('auth.js loads', async () => {
-        const res = await request('GET', '/js/auth.js');
-        assert.strictEqual(res.status, 200);
-    });
+  console.log('\n── Publishing: notice board + mandatory Google address ────');
+  await test('missing Google Maps address fails with a field error', async () => {
+    const r = await teacher.post('/api/courses', validCourse({ google_maps_url: '' }));
+    assert.strictEqual(r.status, 400);
+    assert.strictEqual(r.data.fields.google_maps_url, 'googleRequired');
+  });
+  await test('fake Google Maps address fails', async () => {
+    const r = await teacher.post('/api/courses', validCourse({ google_maps_url: 'https://example.com/maps' }));
+    assert.strictEqual(r.status, 400);
+    assert.strictEqual(r.data.fields.google_maps_url, 'googleInvalid');
+  });
+  await test('missing timezone / date / place fails', async () => {
+    const r = await teacher.post('/api/courses', validCourse({ timezone: '', place_name: '' }));
+    assert.strictEqual(r.status, 400);
+    assert.ok(r.data.fields.timezone && r.data.fields.place_name);
+  });
+  await test('101-character notice is rejected, 100 accepted', async () => {
+    const tooLong = await teacher.post('/api/courses', validCourse({ notice: 'a'.repeat(101) }));
+    assert.strictEqual(tooLong.status, 400);
+    assert.strictEqual(tooLong.data.fields.notice, 'noticeTooLong');
+    const ok = await teacher.post('/api/courses', validCourse({ notice: '字'.repeat(100) }));
+    assert.strictEqual(ok.status, 200, JSON.stringify(ok.data));
+  });
+  await test('teacher publishes a complete class', async () => {
+    const r = await teacher.post('/api/courses', validCourse());
+    assert.strictEqual(r.status, 200, JSON.stringify(r.data));
+    assert.ok(r.data.id > 0);
+    courseId = r.data.id;
+  });
+  await test('published class exposes real UTC time, GMT offset and calendar link', async () => {
+    const r = await anon.get(`/api/courses/${courseId}`);
+    assert.strictEqual(r.status, 200);
+    const c = r.data.course;
+    assert.strictEqual(c.start_utc, '2026-12-01T02:00:00.000Z');
+    assert.strictEqual(c.gmt_offset, 'GMT+7');
+    assert.strictEqual(c.notice, 'Bring your notebook. 请带课本。');
+    assert.ok(c.google_calendar_url.startsWith('https://calendar.google.com/calendar/render?'));
+    assert.ok(c.google_calendar_url.includes('20261201T020000Z'));
+    // SQLite CURRENT_TIMESTAMP is UTC without a marker; the API must normalise
+    // it so browsers don't read it as local time.
+    assert.ok(/Z$/.test(c.created_at), `created_at must be ISO UTC: ${c.created_at}`);
+    assert.ok(/Z$/.test(c.last_update_at), `last_update_at must be ISO UTC: ${c.last_update_at}`);
+  });
+  await test('a second teacher cannot edit another teacher’s class', async () => {
+    const r = await teacher2.put(`/api/courses/${courseId}`, validCourse({ title: 'Hijacked' }));
+    assert.strictEqual(r.status, 403);
+  });
+  await test('editing the notice increments revision and logs an update', async () => {
+    const before = (await anon.get(`/api/courses/${courseId}`)).data.course.revision;
+    const r = await teacher.put(`/api/courses/${courseId}`, validCourse({ notice: 'Room changed to 3F. 换到三楼。' }));
+    assert.strictEqual(r.status, 200, JSON.stringify(r.data));
+    const after = (await anon.get(`/api/courses/${courseId}`)).data.course;
+    assert.ok(after.revision > before);
+    assert.strictEqual(after.has_update, true);
+    const u = await anon.get(`/api/courses/${courseId}/updates`);
+    assert.ok(u.data.updates.some(x => x.change_type === 'notice'));
+  });
+  await test('course list filters by teacher, status and keyword', async () => {
+    const byTeacher = await anon.get(`/api/courses?teacher=${(await teacher.get('/api/auth/me')).data.user.id}`);
+    assert.ok(byTeacher.data.courses.every(c => c.title === 'Integration Test Class' || c.teacher_name === 'Teacher Yosowa'));
+    const bySearch = await anon.get('/api/courses?q=Integration%20Test');
+    assert.ok(bySearch.data.courses.some(c => c.id === courseId));
+    const byStatus = await anon.get('/api/courses?status=cancelled');
+    assert.ok(byStatus.data.courses.every(c => c.run_status === 'cancelled'));
+  });
+
+  console.log('\n── Booking flow & live teacher dashboard ──────────────────');
+  await test('teachers cannot book classes', async () => {
+    const r = await teacher.post(`/api/courses/${courseId}/book`);
+    assert.strictEqual(r.status, 403);
+  });
+  await test('anonymous booking requires login', async () => {
+    const r = await anon.post(`/api/courses/${courseId}/book`);
+    assert.strictEqual(r.status, 401);
+  });
+  await test('student books the class', async () => {
+    const r = await student.post(`/api/courses/${courseId}/book`);
+    assert.strictEqual(r.status, 200, JSON.stringify(r.data));
+    const c = (await student.get(`/api/courses/${courseId}`)).data.course;
+    assert.strictEqual(c.booked_count, 1);
+    assert.strictEqual(c.is_my_booking, true);
+    assert.strictEqual(c.seats_left, 2);
+  });
+  await test('duplicate booking is rejected', async () => {
+    const r = await student.post(`/api/courses/${courseId}/book`);
+    assert.strictEqual(r.status, 400);
+  });
+  await test('?mine=1 returns only this student’s bookings', async () => {
+    const r = await student.get('/api/courses?mine=1');
+    assert.strictEqual(r.status, 200);
+    assert.ok(r.data.courses.length >= 1);
+    assert.ok(r.data.courses.every(c => c.is_my_booking));
+  });
+  await test('teacher sees the booking immediately in the live feed', async () => {
+    const r = await teacher.get('/api/admin/bookings');
+    assert.strictEqual(r.status, 200);
+    const row = r.data.bookings.find(b => b.course_id === courseId);
+    assert.ok(row, 'booking should be visible to the publishing teacher');
+    assert.strictEqual(row.student_username, 'student');
+  });
+  await test('other teachers do not see someone else’s bookings', async () => {
+    const r = await teacher2.get('/api/admin/bookings');
+    assert.ok(!r.data.bookings.some(b => b.course_id === courseId));
+  });
+  await test('teacher overview reports courses, bookings and teachers', async () => {
+    const r = await teacher.get('/api/admin/overview');
+    assert.strictEqual(r.status, 200);
+    assert.ok(r.data.courses >= 1 && r.data.bookings >= 1 && r.data.teachers >= 3, JSON.stringify(r.data));
+  });
+  await test('class detail exposes booked students to its own teacher only', async () => {
+    const own = await teacher.get(`/api/courses/${courseId}`);
+    assert.ok(own.data.bookings.length >= 1);
+    const other = await student.get(`/api/courses/${courseId}`);
+    assert.deepStrictEqual(other.data.bookings, []);
+  });
+  await test('student cancels a booking', async () => {
+    const r = await student.post(`/api/courses/${courseId}/cancel`);
+    assert.strictEqual(r.status, 200);
+    const c = (await student.get(`/api/courses/${courseId}`)).data.course;
+    assert.strictEqual(c.booked_count, 0);
+  });
+  await test('capacity limit is enforced', async () => {
+    const small = await teacher.post('/api/courses', validCourse({ title: 'Tiny Class', capacity: 1 }));
+    assert.strictEqual(small.status, 200);
+    const id = small.data.id;
+    assert.strictEqual((await student.post(`/api/courses/${id}/book`)).status, 200);
+    assert.strictEqual((await student2.post(`/api/courses/${id}/book`)).status, 400);
+    await teacher.del(`/api/courses/${id}`);
+  });
+
+  console.log('\n── Run status, updates & calendar feeds ───────────────────');
+  await test('teacher changes run status and students can see it', async () => {
+    const r = await teacher.post(`/api/courses/${courseId}/status`, { status: 'cancelled', status_note: 'Teacher is sick' });
+    assert.strictEqual(r.status, 200);
+    const c = (await anon.get(`/api/courses/${courseId}`)).data.course;
+    assert.strictEqual(c.run_status, 'cancelled');
+    assert.strictEqual(c.status_note, 'Teacher is sick');
+  });
+  await test('cancelled classes cannot be booked', async () => {
+    const r = await student.post(`/api/courses/${courseId}/book`);
+    assert.strictEqual(r.status, 400);
+  });
+  await test('status change is recorded in update history', async () => {
+    const r = await anon.get(`/api/courses/${courseId}/updates`);
+    assert.ok(r.data.updates.some(u => u.change_type === 'status'));
+  });
+  await test('invalid status is rejected', async () => {
+    const r = await teacher.post(`/api/courses/${courseId}/status`, { status: 'maybe' });
+    assert.strictEqual(r.status, 400);
+  });
+  await test('ICS feed is valid, uses real UTC times and includes map + notice', async () => {
+    const r = await anon.get('/api/calendar/schedule.ics');
+    assert.strictEqual(r.status, 200);
+    assert.ok(/text\/calendar/.test(r.headers.get('content-type')));
+    assert.ok(r.text.includes('BEGIN:VCALENDAR') && r.text.includes('END:VCALENDAR'));
+    assert.ok(r.text.includes('UID:course-'));
+    assert.ok(r.text.includes('DTSTART:20261201T020000Z'), 'real UTC instant missing');
+    assert.ok(r.text.includes('LOCATION:Test Studio\\, Bangkok'), 'place must be ICS-escaped');
+    assert.ok(r.text.includes('https://maps.app.goo.gl/AbCdEf12345'));
+    assert.ok(r.text.includes('Notice / 通知'));
+    // Concrete courses must be UTC instants; only the legacy recurring grid is
+    // allowed to use floating local time (it maps to the VTIMEZONE block).
+    const blocks = r.text.split('BEGIN:VEVENT').slice(1).map(b => b.split('END:VEVENT')[0]);
+    const courseBlocks = blocks.filter(b => b.includes('UID:course-'));
+    assert.ok(courseBlocks.length >= 1, 'no course events found');
+    assert.ok(courseBlocks.every(b => /DTSTART:\d{8}T\d{6}Z/.test(b)),
+      'every published course must use a real UTC instant');
+  });
+  await test('public JSON schedule exposes timezone, place, map and notice', async () => {
+    const r = await anon.get('/api/calendar/schedule');
+    assert.strictEqual(r.status, 200);
+    assert.ok(r.data.courses.length >= 1);
+    const c = r.data.courses.find(x => x.id === courseId);
+    assert.ok(c && c.timezone === 'Asia/Bangkok' && c.google_maps_url && c.start_utc);
+    assert.ok(r.data.timeSlots.length === 8 && r.data.days.length === 7);
+  });
+  await test('/api/calendar/info reports v3 and public URLs', async () => {
+    const r = await anon.get('/api/calendar/info');
+    assert.strictEqual(r.data.version, '3.0.0');
+    assert.ok(r.data.icsSubscriptionUrl.endsWith('/api/calendar/schedule.ics'));
+  });
+  await test('legacy weekly grid endpoint still serves 7×8 slots', async () => {
+    const r = await anon.get('/api/schedule');
+    assert.strictEqual(r.status, 200);
+    assert.ok(r.data.schedule['10:00-11:00'] && r.data.schedule['18:00-19:00']);
+  });
+  await test('legacy weekly slot booking still works for a logged-in student', async () => {
+    const r = await student2.post('/api/schedule/book', { slotId: 1 });
+    assert.ok([200, 400].includes(r.status), `unexpected ${r.status}: ${JSON.stringify(r.data)}`);
+  });
+
+  console.log('\n── Deletion & cleanup ─────────────────────────────────────');
+  await test('teacher deletes own class and it disappears from the board', async () => {
+    const r = await teacher.del(`/api/courses/${courseId}`);
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual((await anon.get(`/api/courses/${courseId}`)).status, 404);
+  });
+  await test('deleting a non-existent class returns 404', async () => {
+    assert.strictEqual((await teacher.del('/api/courses/999999')).status, 404);
+  });
+  await test('unknown API route returns JSON 404', async () => {
+    const r = await anon.get('/api/does-not-exist');
+    assert.strictEqual(r.status, 404);
+    assert.ok(r.data && r.data.error);
+  });
+
+  console.log('\n════════════════════════════════════════════════════════════');
+  console.log(`  ${passed} passed · ${failed} failed`);
+  if (failures.length) {
+    console.log('\n  Failures:');
+    failures.forEach(f => console.log(`   • ${f.name}: ${f.message}`));
+  }
+  console.log('════════════════════════════════════════════════════════════\n');
+
+  await new Promise(resolve => server.close(resolve));
+  try { fs.unlinkSync(dbPath); } catch (_) { /* ignore */ }
+  process.exit(failed ? 1 : 0);
 }
 
-async function testEdgeCases() {
-    console.log('\n⚡ EDGE CASE TESTS');
-    console.log('─'.repeat(50));
-
-    // 1. Malformed JSON body
-    await test('Malformed JSON body handled gracefully', async () => {
-        const url = new URL('/api/auth/login', BASE);
-        const res = await new Promise((resolve, reject) => {
-            const req = http.request({
-                hostname: url.hostname,
-                port: url.port,
-                path: url.pathname,
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            }, (resp) => {
-                let data = '';
-                resp.on('data', chunk => data += chunk);
-                resp.on('end', () => resolve({ status: resp.statusCode, data }));
-            });
-            req.on('error', reject);
-            req.write('{invalid json');
-            req.end();
-        });
-        assert.ok(res.status >= 400, 'Should return error status');
-    });
-
-    // 2. Non-existent API endpoint
-    await test('Non-existent API returns 404', async () => {
-        const res = await request('GET', '/api/nonexistent');
-        assert.strictEqual(res.status, 404);
-    });
-
-    // 3. XSS attempt in username
-    await test('XSS in username does not crash', async () => {
-        const res = await request('POST', '/api/auth/register', {
-            username: '<script>alert(1)</script>',
-            password: 'test1234',
-            displayName: '<img onerror=alert(1)>',
-        });
-        // Should either succeed (storing escaped) or return validation error
-        assert.ok([200, 400].includes(res.status));
-    });
-
-    // 4. Very long input
-    await test('Very long username handled', async () => {
-        const res = await request('POST', '/api/auth/register', {
-            username: 'a'.repeat(10000),
-            password: 'test1234',
-            displayName: 'Long'
-        });
-        // Should not crash
-        assert.ok([200, 400, 413, 500].includes(res.status));
-    });
-
-    // 5. SQL injection attempt
-    await test('SQL injection attempt does not crash', async () => {
-        const res = await request('POST', '/api/auth/login', {
-            username: "' OR '1'='1",
-            password: "' OR '1'='1"
-        });
-        assert.ok([400, 401].includes(res.status));
-    });
-
-    // 6. Empty body
-    await test('Empty POST body handled', async () => {
-        const res = await request('POST', '/api/auth/register');
-        assert.ok(res.status >= 400);
-    });
-}
-
-// ============================
-// RUN ALL TESTS
-// ============================
-async function runAll() {
-    console.log('╔══════════════════════════════════════════════════╗');
-    console.log('║  🧪 English Class Booking - Test Suite          ║');
-    console.log('║  White-box + Black-box Tests                    ║');
-    console.log('╚══════════════════════════════════════════════════╝');
-
-    const startTime = Date.now();
-
-    await testAuth();
-    await testSchedule();
-    await testAdmin();
-    await testCalendar();
-    await testI18n();
-    await testStaticPages();
-    await testEdgeCases();
-
-    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-
-    console.log('\n' + '═'.repeat(50));
-    console.log(`📊 RESULTS: ${passed} passed, ${failed} failed (${duration}s)`);
-    console.log('═'.repeat(50));
-
-    if (errors.length > 0) {
-        console.log('\n❌ FAILURES:');
-        errors.forEach(e => console.log(e));
-    }
-
-    if (failed === 0) {
-        console.log('\n🎉 ALL TESTS PASSED! ✅');
-    }
-
-    process.exit(failed > 0 ? 1 : 0);
-}
-
-runAll().catch(err => {
-    console.error('Test runner error:', err);
-    process.exit(1);
+main().catch(err => {
+  console.error('\n💥 Test runner crashed:', err);
+  try { fs.unlinkSync(dbPath); } catch (_) { /* ignore */ }
+  process.exit(1);
 });
