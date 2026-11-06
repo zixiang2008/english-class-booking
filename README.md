@@ -97,7 +97,7 @@ zone*, and *where do we meet*.
 - **Weekly timetable (v3.2.2):** rows are the start times that were actually published, columns are Monday → Sunday
   - every published class appears as a chip inside its own cell; several teachers in the same slot share the cell, split **in proportion to class length**
   - hovering a chip opens a preview with **Book / Cancel / Join / Details**; clicking it opens the full detail dialog
-  - the whole day stays on the ruler: a class only fills the rows it really runs for, and every other slot is labelled **not published** — the grid never offers a slot nobody published
+  - the whole day stays on the ruler: a class only fills the rows it really runs for, and every other slot is labelled **not published** — the grid never offers a slot nobody published. The same rows are drawn for **every** week, so a future week nobody has published into yet still shows the full timetable instead of an empty panel
   - `‹ ›` walks through weeks, "jump to the latest week with classes" lands on the demo history, and a past week is banner-marked as finished
   - below 760 px the grid becomes seven day cards with the same data
 - **Login page:** platform disclaimer (see §12)
@@ -405,7 +405,7 @@ localised from `X-Language` / `Accept-Language`.
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/healthz` | `{ ok: true, version: "3.4.0" }` |
+| GET | `/healthz` | `{ ok: true, version: "3.4.1" }` |
 
 ---
 
@@ -416,7 +416,7 @@ npm test              # 74 API contract regressions (self-hosted, isolated DB)
 npm run test:e2e      # 54 multi-teacher / multi-student journeys and edge cases
 npm run test:admin    # 35 admin authority, bans, mutes, promotion, moderation, audit, cascade
 npm run check:i18n    # every referenced key exists in all four languages
-npm run test:ui       # 49 real-browser smoke checks (needs a running server)
+npm run test:ui       # 51 real-browser smoke checks (needs a running server)
 npm run test:visual   # 25 multi-viewport visual checks (needs a running server)
 npm run check         # i18n + syntax + integration tests
 ```

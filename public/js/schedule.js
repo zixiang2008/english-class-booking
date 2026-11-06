@@ -449,28 +449,32 @@ const byStart = (a, b) => String(a.start_utc).localeCompare(String(b.start_utc))
 const WEEK_PX_PER_MIN = 1;   // one minute of class = one pixel of row height
 const WEEK_MIN_ROW = 34;     // ... but a slot never collapses below this
 
+// The ruler is a property of the platform, not of the week being looked at.
+// It is built from *every* published class, so the current week, a future week
+// nobody has published into yet and the demo history all render the same rows.
+// Deriving it from the visible week made an empty week collapse to "no classes".
+const WEEK_FALLBACK_START = 9 * 60;    // 09:00 — used before anything is published
+const WEEK_FALLBACK_END = 18 * 60;     // 18:00
+
 /**
- * The complete time ruler of the week: every class boundary plus every whole
- * hour in between, rounded outwards to the hour. The empty hours are kept on
- * purpose — they are the "not published" part of the day.
+ * Whole hours only: from the first hour a class starts to the hour the last one
+ * ends, widened outwards. Rows never follow odd class boundaries (a class that
+ * ends at 20:15 does not invent a 20:15 row), so the grid stays a clean ruler
+ * and looks identical in every week.
  */
 function buildTimeAxis(courses) {
-  if (!courses.length) return [];
-  const points = new Set();
-  let min = Infinity;
-  let max = -Infinity;
+  let first = null;
+  let last = null;
   for (const c of courses) {
-    const from = startMinuteOf(c);
-    const to = endAbsOf(c);
-    points.add(from);
-    points.add(to);
-    if (from < min) min = from;
-    if (to > max) max = to;
+    const from = Math.floor(startMinuteOf(c) / 60) * 60;
+    const to = Math.ceil(endAbsOf(c) / 60) * 60;
+    if (first === null || from < first) first = from;
+    if (last === null || to > last) last = to;
   }
-  const first = Math.floor(min / 60) * 60;
-  const last = Math.ceil(max / 60) * 60;
-  for (let m = first; m <= last; m += 60) points.add(m);
-  return [...points].sort((a, b) => a - b);
+  if (first === null) { first = WEEK_FALLBACK_START; last = WEEK_FALLBACK_END; }
+  const axis = [];
+  for (let m = first; m <= last; m += 60) axis.push(m);
+  return axis;
 }
 
 /** dayKey -> startMinute -> [classes] */
@@ -488,9 +492,11 @@ function buildWeekIndex(courses) {
 }
 
 /**
- * dayKey -> startMinute -> { startMin, endMin, list }.
- * Classes that overlap on the same day are merged into one block, because a cell
- * can only start once: the second class would otherwise have nowhere to render.
+ * dayKey -> hour -> { startMin, endMin, list }.
+ * Blocks are keyed by the hour row they start in (a 20:15 class belongs to the
+ * 20:00 row) and classes that overlap on the same day merge into one block,
+ * because a cell can only start once: the second class would otherwise have
+ * nowhere to render.
  */
 function buildDayBlocks(dates, index) {
   const blocks = new Map();
@@ -501,7 +507,7 @@ function buildDayBlocks(dates, index) {
       const all = [...byMinute.values()].flat().sort(byStart);
       let cur = null;
       for (const c of all) {
-        const from = startMinuteOf(c);
+        const from = Math.floor(startMinuteOf(c) / 60) * 60;
         const to = endAbsOf(c);
         if (cur && from < cur.endMin) {
           cur.list.push(c);
@@ -589,13 +595,15 @@ function renderWeekTable(dates, index, shortDays, axis, blocks) {
         cells.push(`<td class="wk-td wk-td-empty ${base}"><span class="wk-none">${e(I18N.t('v3_wkNotPublished'))}</span></td>`);
         return;
       }
-      let endIdx = axis.indexOf(block.endMin);
+      let endIdx = axis.findIndex(m => m >= block.endMin);
+      if (endIdx < 0) endIdx = axis.length - 1;
       if (endIdx <= i) endIdx = i + 1;
       covered[di] = endIdx;
-      // The block is as tall as the class runs, but several classes sharing it
+      // The block is as tall as the rows it spans, but several classes sharing it
       // each need room for their text, so the rows grow to fit them.
+      const spanMin = axis[Math.min(endIdx, axis.length - 1)] - from;
       const stackH = Math.max(
-        (block.endMin - block.startMin) * WEEK_PX_PER_MIN - 8,
+        spanMin * WEEK_PX_PER_MIN - 8,
         block.list.length * 76,
         60
       );
@@ -628,7 +636,8 @@ function renderWeekList(dates, index, shortDays, axis, blocks) {
       const block = map.get(from);
       if (block) {
         items.push(block.list.map(c => weekChipHtml(c, 1, true)).join(''));
-        let endIdx = axis.indexOf(block.endMin);
+        let endIdx = axis.findIndex(m => m >= block.endMin);
+        if (endIdx < 0) endIdx = axis.length - 1;
         if (endIdx <= k) endIdx = k + 1;
         k = endIdx;
       } else {
@@ -679,15 +688,16 @@ function renderWeekly() {
   if (tzEl) tzEl.textContent = I18N.t('v3_wkTimezone', { tz: Intl.DateTimeFormat().resolvedOptions().timeZone });
 
   const index = buildWeekIndex(weekCourses);
-  // Only the classes of *this* week define the rows, otherwise a start time that
-  // exists somewhere in the past would leave a permanently empty row on screen.
+  // The rows are the same every week (see buildTimeAxis) — only the classes
+  // change. An empty future week still shows the whole day, marked "not
+  // published", so the timetable never turns into a blank panel.
   const visible = [];
   for (const d of dates) {
     const byMinute = index.get(dayKeyOf(d));
     if (!byMinute) continue;
     for (const list of byMinute.values()) visible.push(...list);
   }
-  const axis = buildTimeAxis(visible);
+  const axis = buildTimeAxis(weekCourses);
   const blocks = buildDayBlocks(dates, index);
   const count = visible.length;
   const countEl = document.getElementById('wk-count');

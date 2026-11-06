@@ -220,6 +220,37 @@ async function main() {
     week.rowspans.length > 0 && Math.max(...week.rowspans) >= 2,
     `rowspans=${JSON.stringify(week.rowspans)}`);
 
+  // v3.4.1 — the ruler belongs to the platform, not to the week on screen: a
+  // future week nobody has published into yet must show exactly the same rows,
+  // every one of them marked "not published".
+  const futureWeek = await evaluate(`(() => {
+    const saved = weekOffset;
+    const before = [...document.querySelectorAll('#week-table-wrap tbody tr')]
+      .map(tr => tr.children[0].textContent.replace(/\\s+/g, ' ').trim());
+    weekOffset = 12;
+    renderWeekly();
+    const rows = [...document.querySelectorAll('#week-table-wrap tbody tr')];
+    const cells = [...document.querySelectorAll('#week-table-wrap .wk-td')];
+    const out = {
+      sameRows: rows.length === before.length &&
+        rows.every((tr, i) => tr.children[0].textContent.replace(/\\s+/g, ' ').trim() === before[i]),
+      rows: rows.length,
+      times: rows.map(tr => tr.children[0].textContent.replace(/\\s+/g, ' ').trim()),
+      unlabelled: cells.filter(td => !td.querySelector('.wk-course') && !td.textContent.trim()).length,
+      chips: document.querySelectorAll('#week-table-wrap .wk-course').length,
+      cards: document.querySelectorAll('#week-list .wk-day').length,
+      overflow: document.documentElement.scrollWidth - window.innerWidth
+    };
+    weekOffset = saved;
+    renderWeekly();
+    return out;
+  })()`);
+  check('an empty future week keeps exactly the same time ruler',
+    futureWeek.sameRows && futureWeek.rows >= 6 && futureWeek.cards === 7,
+    JSON.stringify(futureWeek));
+  check('an empty future week labels every slot as not published',
+    futureWeek.unlabelled === 0, JSON.stringify(futureWeek));
+
   // Several teachers in the same slot must split the cell in proportion to how
   // long each class runs — and none of them may be clipped. Layout has to be
   // measurable, so show the timetable first.

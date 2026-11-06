@@ -12,6 +12,29 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.4.1] — 2026-11-06
+
+### Fixed
+- **The time ruler was per-week, so an empty week had no rows at all.** Rows were
+  derived from the classes of the week being displayed, which meant every future
+  week (nothing published yet) collapsed into a single "no classes yet" panel
+  while the current week showed 10:00–17:00. The ruler is now a property of the
+  platform: it spans every published class, so the current week, next week, the
+  demo history and a week nobody has touched all render the same rows, and every
+  slot without a class is labelled **not published**.
+- Rows are whole hours only. Class boundaries such as 20:15 no longer invent a
+  20:15 row, which used to leak into weeks that had nothing at that time.
+
+### Changed
+- The empty-week banner now says the whole timetable is "not published" instead
+  of "not bookable", matching the cells.
+
+### Tests
+- Browser smoke: an empty future week must keep exactly the same time ruler as
+  the populated week and leave no cell unlabelled.
+
+---
+
 ## [3.4.0] — 2026-11-06
 
 ### Changed
@@ -191,6 +214,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+[3.4.1]: https://github.com/zixiang2008/CMenglishClass/compare/v3.4.0...v3.4.1
 [3.4.0]: https://github.com/zixiang2008/CMenglishClass/compare/v3.3.1...v3.4.0
 [3.3.1]: https://github.com/zixiang2008/CMenglishClass/compare/v3.3.0...v3.3.1
 [3.3.0]: https://github.com/zixiang2008/CMenglishClass/compare/v3.2.1...v3.3.0
